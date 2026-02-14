@@ -9,17 +9,17 @@ I am an AI-native engineer bridging the gap between academic research and produc
 ### 🔬 Research & Publications
 *Authored 4 peer-reviewed papers published in IEEE and Taylor & Francis, focusing on AI safety, neurology, and resource optimization.*
 
-- **[IEEE Xplore] Drone-based Artificial Intelligence for Efficient Disaster Management**
-  *Leveraging drone technology and AI for efficient real-time disaster response.*
+- **[IEEE Xplore] [Drone-based Artificial Intelligence for Efficient Disaster Management](https://ieeexplore.ieee.org/document/10543607)**
+  [cite_start]*Leveraging drone technology and AI for efficient real-time disaster response.* [cite: 46, 47]
 
-- **[IEEE Xplore] Enhancing Malware Detection Accuracy**
-  *A comparative analysis of ML models utilizing Explainable AI (XAI) for detection reliability.*
+- **[IEEE Xplore] [Enhancing Malware Detection Accuracy](https://ieeexplore.ieee.org/document/10837854)**
+  [cite_start]*A comparative analysis of ML models utilizing Explainable AI (XAI) for detection reliability.* [cite: 49, 50]
 
-- **[Taylor & Francis] Revolutionizing Neurological Alertness Assessment**
-  *Analyzing EEG signals using Machine Learning and XAI for neurological insights.*
+- **[Taylor & Francis] [Revolutionizing Neurological Alertness Assessment](https://www.taylorfrancis.com/chapters/edit/10.1201/9781003587392-37/revolutionizing-neurological-alertness-assessment-machine-learning-explainable-ai-insights-eeg-signal-analysis-vedanth-sai-harshavardhan-ashwini-kodipalli-trupthi-rao)**
+  [cite_start]*Analyzing EEG signals using Machine Learning and XAI for neurological insights.* [cite: 42, 43]
 
-- **[Taylor & Francis] City Power Generation and Optimization**
-  *Optimizing urban power distribution using Fuzzy AHP and Fuzzy TOPSIS frameworks.*
+- **[Taylor & Francis] [City Power Generation and Optimization](https://www.taylorfrancis.com/chapters/edit/10.1201/9781032711157-10/city-power-generation-optimization-using-fuzzy-ahp-fuzzy-topsis-sai-harshavardhan-mayur-gowda-ashwini-kodipalli-rohini-bhavani-soma-gargi)**
+  [cite_start]*Optimizing urban power distribution using Fuzzy AHP and Fuzzy TOPSIS frameworks.* [cite: 37, 39]
 
 ---
 
@@ -40,16 +40,16 @@ I am an AI-native engineer bridging the gap between academic research and produc
   *Full-stack evaluation project demonstrating robust system architecture using **TypeScript**.*
 
 - 👁️ **[Face_AI](https://github.com/HarshaVardhan3002/Face_AI)**
-  *Real-time facial emotion tracking and recognition AI built with **Jupyter Notebooks**.*
+  [cite_start]*Real-time facial emotion tracking and recognition AI built with **Jupyter Notebooks**.* [cite: 69]
 
 - 🎙️ **[flightvoice-ai](https://github.com/HarshaVardhan3002/flightvoice-ai)**
-  *Aviation communication system featuring real-time speech-to-text (Whisper) and context correction (DeepSeek).*
+  [cite_start]*Aviation communication system featuring real-time speech-to-text (Whisper) and context correction (DeepSeek).* [cite: 56]
 
 - 🎯 **[GunShot_Detection](https://github.com/HarshaVardhan3002/GunShot_Detection)**
-  *Safety-critical MVP for detecting and localizing gunshots using DSP and ML on microphone arrays.*
+  [cite_start]*Safety-critical MVP for detecting and localizing gunshots using DSP and ML on microphone arrays.* [cite: 52]
 
 - 📹 **[Object_tracker](https://github.com/HarshaVardhan3002/Object_tracker)**
-  *Real-time Multi-Object Tracking (MOT) software for video analysis.*
+  [cite_start]*Real-time Multi-Object Tracking (MOT) software for video analysis.* [cite: 58]
 
 - 🌐 **[Financial_Organization_Interface](https://github.com/HarshaVardhan3002/Financial_Organization_Interface)**
   *Responsive landing page and interface designed for the **Chitfund_log** web application.*
