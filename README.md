@@ -51,9 +51,6 @@ I am an AI-native engineer bridging the gap between academic research and produc
 - 📹 **[Object_tracker](https://github.com/HarshaVardhan3002/Object_tracker)**
   *Real-time Multi-Object Tracking (MOT) software for video analysis.*
 
-- 🌐 **[Financial_Organization_Interface](https://github.com/HarshaVardhan3002/Financial_Organization_Interface)**
-  *Responsive landing page and interface designed for the **Chitfund_log** web application.*
-
 ---
 
 ### 📊 Activity
