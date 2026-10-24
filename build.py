@@ -57,10 +57,29 @@ def frame(w, h, cut=18):
     return f"{1},{1} {w - cut},{1} {w - 1},{cut} {w - 1},{h - 1} {cut},{h - 1} {1},{h - cut}"
 
 
+def logotype(h=96):
+    # Angular "VON" letterforms (0..100 units high), slanted later with skewX
+    v = "M0 0H24L45 64L66 0H90L57 100H33Z"
+    o = "M14 0H90V86L76 100H0V14ZM22 22V78H68V22Z"
+    n = "M0 0H22L68 60V0H90V100H68L22 40V100H0Z"
+    s = h / 100
+    parts = [f'<path transform="translate({x * s:.1f},0) scale({s:.2f})" d="{d}"/>' for x, d in ((0, v), (110, o), (220, n))]
+    return "".join(parts), 310 * s
+
+
+def hexstream(n=40, seed=3002):
+    out, x = [], seed
+    for _ in range(n):
+        x = (x * 1103515245 + 12345) & 0x7FFFFFFF
+        out.append(f"{x & 0xFFFF:04X} {(x >> 16) & 0xFF:02X}")
+    return out
+
+
 def dossier(stamp, n_models, dl):
     w, h = 1280, 660
     sans = "font-family=\"'Segoe UI','Helvetica Neue',Arial,sans-serif\""
-    name = f'x="380" y="214" {MONO} font-size="104" font-weight="700" letter-spacing="14"'
+    glyphs, gw = logotype()
+    lx, ly = 386, 132
     fields = [("FOCUS", "AI apps, desktop agents, inference engines, local LLMs"),
               ("STACK", "Rust, C/C++, Python, TypeScript, Dart, CUDA, ROCm, Vulkan"),
               ("MODELS", f"{n_models} published on Hugging Face, {dl:,} downloads"),
@@ -70,7 +89,7 @@ def dossier(stamp, n_models, dl):
     rows, css = [], []
     for k, (label, value) in enumerate(fields):
         y = 314 + k * 42
-        rows.append(f'<text x="380" y="{y}" {MONO} font-size="15" fill="{DIM}" letter-spacing="3">{label}</text>')
+        rows.append(f'<text x="380" y="{y}" {MONO} font-size="15" fill="#7D8590" letter-spacing="3">{label}</text>')
         if label == "BASE":
             rows.append(f'<rect x="540" y="{y - 17}" width="190" height="22" fill="{TXT}"/>'
                         f'<text x="744" y="{y}" {MONO} font-size="15" fill="{R}" letter-spacing="2">[REDACTED]</text>')
@@ -78,32 +97,42 @@ def dossier(stamp, n_models, dl):
             rows.append(f'<rect class="pulse" x="540" y="{y - 13}" width="12" height="12" fill="{C}"/>'
                         f'<text x="562" y="{y}" {sans} font-size="21" fill="{C}">{value}</text>')
         else:
-            rows.append(f'<text x="540" y="{y}" {sans} font-size="21" fill="{Y if label == 'MODELS' else TXT}">{escape(value)}</text>')
-        # cover that slides away, so the fields "decrypt" one by one
-        rows.append(f'<rect class="d{k}" x="376" y="{y - 26}" width="860" height="38" fill="{BG}"/>')
+            rows.append(f'<text x="540" y="{y}" {sans} font-size="21" fill="{Y if label == "MODELS" else TXT}">{escape(value)}</text>')
+        # cover that slides out of the clipped field area, so the fields "decrypt" one by one
+        rows.append(f'<rect class="d{k}" x="376" y="{y - 26}" width="770" height="38" fill="{BG}"/>')
         css.append(f".d{k}{{animation:dec .9s steps(14) {1.2 + k * 0.45:.2f}s both}}")
+    hexes = hexstream()
+    hex_svg = "".join(f'<text x="1172" y="{300 + i * 20}" {MONO} font-size="12" fill="{C if i % 7 == 3 else DIM}">{t}</text>'
+                      for i, t in enumerate(hexes + hexes[:14]))
     bars, x = [], 52
     for i, bw in enumerate([3, 1, 2, 1, 4, 1, 1, 3, 2, 1, 3, 1, 2, 4, 1, 2, 1, 3, 1, 1, 2, 3, 1, 2, 1, 4, 2, 1]):
         if i % 2 == 0:
             bars.append(f'<rect x="{x:.1f}" y="478" width="{bw * 2.2:.1f}" height="36" fill="{Y}"/>')
         x += bw * 2.2 + 2.6
+    use = f'transform="translate({lx},{ly}) skewX(-10)"'
     return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}">
 <defs>
 <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="{C}" stroke-opacity="0.06"/></pattern>
 <pattern id="scan" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="4" height="1" fill="#fff" opacity="0.035"/></pattern>
-<pattern id="noise" width="6" height="6" patternUnits="userSpaceOnUse"><rect width="6" height="3" fill="{C}" opacity="0.22"/></pattern>
+<pattern id="noise" width="6" height="6" patternUnits="userSpaceOnUse"><rect width="6" height="2" fill="{C}" opacity="0.10"/></pattern>
 <linearGradient id="sweep" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{C}" stop-opacity="0"/><stop offset="1" stop-color="{C}" stop-opacity="0.10"/></linearGradient>
+<linearGradient id="beam" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{C}" stop-opacity="0"/><stop offset=".9" stop-color="{C}" stop-opacity="0.25"/><stop offset="1" stop-color="{C}" stop-opacity="0.9"/></linearGradient>
+<radialGradient id="eye"><stop offset="0" stop-color="#fff"/><stop offset=".3" stop-color="{R}"/><stop offset="1" stop-color="{R}" stop-opacity="0"/></radialGradient>
 <clipPath id="photo"><rect x="52" y="110" width="276" height="336"/></clipPath>
-<clipPath id="s1"><rect x="0" y="146" width="{w}" height="16"/></clipPath>
-<clipPath id="s2"><rect x="0" y="186" width="{w}" height="10"/></clipPath>
-<clipPath id="p1"><rect x="52" y="200" width="276" height="22"/></clipPath>
-<clipPath id="p2"><rect x="52" y="300" width="276" height="14"/></clipPath>
+<clipPath id="fieldsclip"><rect x="370" y="280" width="776" height="270"/></clipPath>
+<clipPath id="hexclip"><rect x="1166" y="284" width="70" height="262"/></clipPath>
+<clipPath id="s1"><rect x="0" y="{ly + 30}" width="{w}" height="14"/></clipPath>
+<clipPath id="s2"><rect x="0" y="{ly + 66}" width="{w}" height="9"/></clipPath>
+<g id="von">{glyphs}</g>
 <style>
 @keyframes gr{{0%,84%,100%{{transform:translate(0,0)}}86%{{transform:translate(-6px,2px)}}88%{{transform:translate(5px,-2px)}}90%{{transform:translate(-3px,1px)}}92%{{transform:translate(0,0)}}}}
 @keyframes gc{{0%,84%,100%{{transform:translate(0,0)}}86%{{transform:translate(6px,-2px)}}88%{{transform:translate(-5px,2px)}}90%{{transform:translate(3px,0)}}92%{{transform:translate(0,0)}}}}
 @keyframes sl{{0%,85%,93%,100%{{transform:translateX(0);opacity:0}}86%{{transform:translateX(-22px);opacity:1}}88%{{transform:translateX(16px);opacity:1}}90%{{transform:translateX(-9px);opacity:1}}}}
-@keyframes ps{{0%,70%,78%,100%{{transform:translateX(0)}}72%{{transform:translateX(18px)}}75%{{transform:translateX(-12px)}}}}
-@keyframes dec{{from{{transform:translateX(0)}}to{{transform:translateX(880px)}}}}
+@keyframes ps{{0%,70%,78%,100%{{transform:translateX(0)}}72%{{transform:translateX(14px)}}75%{{transform:translateX(-10px)}}}}
+@keyframes beam{{from{{transform:translateY(-60px)}}to{{transform:translateY(336px)}}}}
+@keyframes eye{{0%,40%,44%,100%{{opacity:1}}42%{{opacity:.2}}}}
+@keyframes hex{{from{{transform:translateY(0)}}to{{transform:translateY(-800px)}}}}
+@keyframes dec{{from{{transform:translateX(0)}}to{{transform:translateX(790px)}}}}
 @keyframes show{{from{{opacity:0}}to{{opacity:1}}}}
 @keyframes stamp{{0%{{opacity:0;transform:rotate(-12deg) scale(2.2)}}100%{{opacity:.9;transform:rotate(-12deg) scale(1)}}}}
 @keyframes blink{{50%{{opacity:0}}}}
@@ -111,10 +140,11 @@ def dossier(stamp, n_models, dl):
 @keyframes flick{{0%,18%,22%,62%,64%,100%{{opacity:1}}20%,63%{{opacity:.4}}}}
 @keyframes sweep{{from{{transform:translateY(-120px)}}to{{transform:translateY({h}px)}}}}
 .gr{{animation:gr 4s infinite steps(1)}} .gc{{animation:gc 4s infinite steps(1)}}
-.s1{{animation:sl 4s infinite steps(1)}} .s2{{animation:sl 4s .1s infinite steps(1)}}
-.ps1{{animation:ps 3s infinite steps(1)}} .ps2{{animation:ps 3s .4s infinite steps(1)}}
+.s1{{animation:sl 4s infinite steps(1)}} .s2{{animation:sl 4s .1s infinite steps(1) both}}
+.ps1{{animation:ps 3s infinite steps(1)}} .beam{{animation:beam 3.2s linear infinite}}
+.eye{{animation:eye 3s infinite steps(1)}} .hex{{animation:hex 40s linear infinite}}
 .name{{animation:show .01s .6s both}} .flick{{animation:flick 5s 1s infinite}}
-.stamp{{transform-box:fill-box;transform-origin:center;animation:stamp .25s 3.7s both ease-in}}
+.stamp{{transform-box:fill-box;transform-origin:center;animation:stamp .25s 3.9s both ease-in}}
 .blink{{animation:blink 1s infinite steps(1)}} .pulse{{animation:pulse 1.6s infinite}}
 .sweep{{animation:sweep 7s linear infinite}}
 {chr(10).join(css)}
@@ -128,30 +158,41 @@ def dossier(stamp, n_models, dl):
 <text x="40" y="50" {MONO} font-size="19" font-weight="700" fill="{BG}" letter-spacing="2">ARASAKA CORP // PERSONNEL DATABASE // RECORD 0x3002</text>
 <text class="blink" x="{w - 50}" y="50" {MONO} font-size="16" font-weight="700" fill="{BG}" text-anchor="end">&#9888; UNAUTHORIZED ACCESS</text>
 <text x="52" y="90" {MONO} font-size="13" fill="{DIM}" letter-spacing="1">SOURCE arasaka.corp/hr/personnel   //   RETRIEVED {stamp}   //   INTEGRITY 87%</text>
-<rect x="52" y="110" width="276" height="336" fill="{PANEL}"/>
+<rect x="52" y="110" width="276" height="336" fill="#0A0D12"/>
 <g clip-path="url(#photo)">
 <rect x="52" y="110" width="276" height="336" fill="url(#noise)"/>
-<g class="ps1"><circle cx="190" cy="230" r="62" fill="{C}" opacity="0.28"/></g>
-<g class="ps2"><path d="M80 446 C 90 340, 150 318, 190 318 C 230 318, 290 340, 300 446 Z" fill="{C}" opacity="0.22"/></g>
-<g clip-path="url(#p1)"><g class="ps1"><rect x="52" y="200" width="276" height="22" fill="{R}" opacity="0.35"/></g></g>
-<g clip-path="url(#p2)"><g class="ps2"><rect x="52" y="300" width="276" height="14" fill="{Y}" opacity="0.3"/></g></g>
+<g class="ps1">
+<path d="M66 446C72 392 104 360 140 346C118 318 108 282 112 244C116 190 150 156 190 156C230 156 264 190 268 244C272 282 262 318 240 346C276 360 308 392 314 446Z" fill="#11161D" stroke="{C}" stroke-opacity="0.55" stroke-width="2"/>
+<path d="M140 346C160 360 220 360 240 346M112 244C140 236 240 236 268 244M150 172C168 200 212 200 230 172" fill="none" stroke="{C}" stroke-opacity="0.25"/>
+<path d="M146 238C146 206 166 188 190 188C214 188 234 206 234 238L228 296C216 316 164 316 152 296Z" fill="#05070A"/>
+</g>
+<g class="eye"><ellipse cx="190" cy="250" rx="48" ry="14" fill="url(#eye)" opacity="0.55"/>
+<polygon points="152,246 228,246 222,256 158,256" fill="{R}"/></g>
+<rect class="beam" x="52" y="110" width="276" height="60" fill="url(#beam)"/>
 </g>
 <path d="M52 130V110H72 M308 110H328V130 M328 426V446H308 M72 446H52V426" fill="none" stroke="{C}" stroke-width="3"/>
+<path d="M140 206V196H150 M230 196H240V206 M240 298V308H230 M150 308H140V298" fill="none" stroke="{Y}" stroke-width="2" opacity="0.8"/>
+<circle class="blink" cx="68" cy="128" r="4" fill="{R}"/>
+<text x="78" y="132" {MONO} font-size="11" fill="{TXT}" opacity="0.8" letter-spacing="1">CAM_07 // REC</text>
 <rect x="74" y="410" width="232" height="24" fill="{BG}" opacity="0.85"/>
-<text class="blink" x="190" y="427" {MONO} font-size="13" fill="{R}" text-anchor="middle" letter-spacing="2">IMAGE DATA CORRUPTED</text>
+<text class="blink" x="190" y="427" {MONO} font-size="13" fill="{R}" text-anchor="middle" letter-spacing="2">FACE MATCH: FAILED</text>
 {''.join(bars)}
 <text x="52" y="540" {MONO} font-size="14" fill="{DIM}" letter-spacing="2">SUBJECT ID 0x3002-VON</text>
-<text x="380" y="128" {MONO} font-size="15" fill="{DIM}" letter-spacing="3">SUBJECT</text>
+<text x="380" y="120" {MONO} font-size="15" fill="#7D8590" letter-spacing="3">SUBJECT</text>
 <g class="name"><g class="flick">
-<text {name} fill="{R}" class="gr" opacity="0.85">VON</text>
-<text {name} fill="{C}" class="gc" opacity="0.85">VON</text>
-<text {name} fill="{Y}">VON</text>
-<g clip-path="url(#s1)"><g class="s1"><rect x="370" y="120" width="380" height="110" fill="{BG}"/><text {name} fill="{C}">VON</text></g></g>
-<g clip-path="url(#s2)"><g class="s2"><rect x="370" y="120" width="380" height="110" fill="{BG}"/><text {name} fill="{R}">VON</text></g></g>
+<g class="gr"><use href="#von" {use} fill="{R}" opacity="0.8"/></g>
+<g class="gc"><use href="#von" {use} fill="{C}" opacity="0.8"/></g>
+<use href="#von" transform="translate({lx + 5},{ly + 5}) skewX(-10)" fill="{C}" opacity="0.35"/>
+<use href="#von" {use} fill="{Y}"/>
+<rect x="{lx - 20}" y="{ly + 58}" width="{gw + 40:.0f}" height="4" fill="{BG}"/>
+<g clip-path="url(#s1)"><g class="s1"><rect x="370" y="{ly - 4}" width="{gw + 60:.0f}" height="104" fill="{BG}"/><use href="#von" {use} fill="{C}"/></g></g>
+<g clip-path="url(#s2)"><g class="s2"><rect x="370" y="{ly - 4}" width="{gw + 60:.0f}" height="104" fill="{BG}"/><use href="#von" {use} fill="{R}"/></g></g>
 </g></g>
-<text x="382" y="258" {sans} font-size="26" fill="{C}">AI Engineer · Systems Developer · App Builder</text>
-<line x1="380" y1="276" x2="1220" y2="276" stroke="{Y}" stroke-opacity="0.35"/>
-{''.join(rows)}
+<text x="382" y="262" {sans} font-size="26" fill="{C}">AI Engineer · Systems Developer · App Builder</text>
+<line x1="380" y1="278" x2="1236" y2="278" stroke="{Y}" stroke-opacity="0.35"/>
+<g clip-path="url(#fieldsclip)">{''.join(rows)}</g>
+<line x1="1158" y1="290" x2="1158" y2="540" stroke="{C}" stroke-opacity="0.25"/>
+<g clip-path="url(#hexclip)"><g class="hex">{hex_svg}</g></g>
 <g class="stamp"><rect x="930" y="110" width="270" height="74" fill="none" stroke="{R}" stroke-width="5"/>
 <text x="1065" y="160" {MONO} font-size="34" font-weight="700" fill="{R}" text-anchor="middle" letter-spacing="5">CLASSIFIED</text></g>
 <polygon points="52,566 1228,566 1228,616 1200,640 52,640" fill="{PANEL}" stroke="{Y}" stroke-opacity="0.35"/>
