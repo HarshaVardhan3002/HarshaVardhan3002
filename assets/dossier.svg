@@ -50,7 +50,7 @@
 <polygon points="21,21 1223,21 1249,47 1249,64 21,64" fill="#FF003C"/>
 <text x="40" y="50" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="19" font-weight="700" fill="#07080B" letter-spacing="2">ARASAKA CORP // PERSONNEL DATABASE // RECORD 0x3002</text>
 <text class="blink" x="1230" y="50" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="16" font-weight="700" fill="#07080B" text-anchor="end">&#9888; UNAUTHORIZED ACCESS</text>
-<text x="52" y="90" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="13" fill="#5C6370" letter-spacing="1">SOURCE arasaka.corp/hr/personnel   //   RETRIEVED 2026-10-24 22:24 UTC   //   INTEGRITY 87%</text>
+<text x="52" y="90" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="13" fill="#5C6370" letter-spacing="1">SOURCE arasaka.corp/hr/personnel   //   RETRIEVED 2026-10-24 23:51 UTC   //   INTEGRITY 87%</text>
 <rect x="52" y="110" width="276" height="336" fill="#0A0D12"/>
 <g clip-path="url(#photo)">
 <rect x="52" y="110" width="276" height="336" fill="url(#noise)"/>

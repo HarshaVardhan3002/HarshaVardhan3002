@@ -284,35 +284,113 @@ def card(i, name, tag, desc, lang, stars):
 </svg>"""
 
 
-def hf_panel(dl, n_models, top, w=1280, h=330):
+def segments(text, h):
+    # Seven-segment readout as polygons: returns (lit, unlit, width) in a box h high
+    t, g, W, H = 9, 1.5, 50, 90
+
+    def hs(x0, x1, y):
+        return [(x0 + g, y), (x0 + g + t / 2, y - t / 2), (x1 - g - t / 2, y - t / 2), (x1 - g, y),
+                (x1 - g - t / 2, y + t / 2), (x0 + g + t / 2, y + t / 2)]
+
+    def vs(x, y0, y1):
+        return [(x, y0 + g), (x + t / 2, y0 + g + t / 2), (x + t / 2, y1 - g - t / 2), (x, y1 - g),
+                (x - t / 2, y1 - g - t / 2), (x - t / 2, y0 + g + t / 2)]
+
+    seg = {"a": hs(4.5, 45.5, 4.5), "g": hs(4.5, 45.5, 45), "d": hs(4.5, 45.5, 85.5), "f": vs(4.5, 4.5, 45),
+           "b": vs(45.5, 4.5, 45), "e": vs(4.5, 45, 85.5), "c": vs(45.5, 45, 85.5)}
+    on = {"0": "abcdef", "1": "bc", "2": "abged", "3": "abgcd", "4": "fgbc", "5": "afgcd", "6": "afgedc",
+          "7": "abc", "8": "abcdefg", "9": "abcdfg"}
+    s = h / H
+    lit, unlit, x = [], [], 0.0
+    for ch in text:
+        if ch == ",":
+            lit.append(f"{x + 4 * s:.1f},{82 * s:.1f} {x + 13 * s:.1f},{82 * s:.1f} {x + 7 * s:.1f},{100 * s:.1f} {x:.1f},{100 * s:.1f}")
+            x += 20 * s
+            continue
+        for k, pts in seg.items():
+            poly = " ".join(f"{x + px * s:.1f},{py * s:.1f}" for px, py in pts)
+            (lit if k in on[ch] else unlit).append(poly)
+        x += (W + 10) * s
+    return lit, unlit, x - 10 * s
+
+
+def readout(text, x, y, h, color):
+    lit, unlit, _ = segments(text, h)
+    tr = f'transform="translate({x},{y}) skewX(-8)"'
+    shape = "".join(f'<polygon points="{p}"/>' for p in lit)
+    dark = "".join(f'<polygon points="{p}"/>' for p in unlit)
+    return (f'<g {tr} fill="#161A22">{dark}</g>'
+            f'<g class="gr"><g {tr} fill="{R}" opacity="0.7">{shape}</g></g>'
+            f'<g class="gc"><g {tr} fill="{C}" opacity="0.7">{shape}</g></g>'
+            f'<g transform="translate({x + 4},{y + 4}) skewX(-8)" fill="{C}" opacity="0.3">{shape}</g>'
+            f'<g {tr} fill="{color}">{shape}</g>')
+
+
+def hf_panel(dl, n_models, top, stamp, w=1280, h=430):
     sans = "font-family=\"'Segoe UI','Helvetica Neue',Arial,sans-serif\""
-    notes = ["Open models I quantized to run fast on AMD GPUs and Strix Halo:",
-             "language, image and video models, each file scored against the original.",
-             "Plus speech models ported to the AMD XDNA2 NPU."]
-    body = "".join(f'<text x="470" y="{112 + k * 30}" {sans} font-size="20" fill="{TXT}">{escape(l)}</text>'
+    notes = ["Open models I quantized to run fast on AMD GPUs",
+             "and Strix Halo. Every file is scored against the",
+             "original. Plus speech models ported to the AMD NPU."]
+    body = "".join(f'<text x="470" y="{134 + k * 30}" {sans} font-size="20" fill="{TXT}">{escape(l)}</text>'
                    for k, l in enumerate(notes))
-    rows = "".join(
-        f'<text x="470" y="{250 + k * 26}" {MONO} font-size="16" fill="{TXT}">{escape(name[:44])}</text>'
-        f'<text x="{w - 40}" y="{250 + k * 26}" {MONO} font-size="16" fill="{Y}" text-anchor="end">{n:,} &#8595;</text>'
-        for k, (name, n) in enumerate(top))
+    peak = max((n for _, n in top), default=1) or 1
+    rows = ""
+    for k, (name, n) in enumerate(top):
+        y = 282 + k * 34
+        rows += (f'<text x="470" y="{y}" {MONO} font-size="15" fill="{R}">{k + 1:02d}</text>'
+                 f'<text x="502" y="{y}" {MONO} font-size="16" fill="{TXT}">{escape(name[:38])}</text>'
+                 f'<rect x="912" y="{y - 13}" width="220" height="14" fill="#161A22"/>'
+                 f'<rect class="bar b{k}" x="912" y="{y - 13}" width="{220 * n / peak:.1f}" height="14" fill="{C}" opacity="{1 - k * 0.17:.2f}"/>'
+                 f'<text x="1226" y="{y}" {MONO} font-size="17" font-weight="700" fill="{Y}" text-anchor="end">{n:,}</text>')
+    tags, tx = "", 52
+    for t in ["LLM", "IMAGE", "VIDEO", "SPEECH / NPU"]:
+        tw = len(t) * 9 + 22
+        tags += (f'<polygon points="{tx},{352} {tx + tw - 8},{352} {tx + tw},{360} {tx + tw},{378} {tx},{378}" fill="none" stroke="{C}" stroke-opacity="0.6"/>'
+                 f'<text x="{tx + 11}" y="370" {MONO} font-size="13" fill="{C}" letter-spacing="1">{t}</text>')
+        tx += tw + 10
     return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}">
-<defs><pattern id="scan" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="4" height="1" fill="#fff" opacity="0.03"/></pattern>
-<linearGradient id="glow" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="{Y}" stop-opacity="0.10"/><stop offset="1" stop-color="{Y}" stop-opacity="0"/></linearGradient>
-<style>@keyframes blink{{50%{{opacity:0}}}} .blink{{animation:blink 1.2s infinite steps(1)}}</style></defs>
-<polygon points="{frame(w, h, 30)}" fill="{PANEL}" stroke="{Y}" stroke-width="3"/>
-<rect x="2" y="44" width="420" height="{h - 74}" fill="url(#glow)"/>
-<polygon points="1,1 {w - 420},1 {w - 444},40 1,40" fill="{Y}"/>
-<text x="20" y="28" {MONO} font-size="19" font-weight="700" fill="{BG}" letter-spacing="2">SECOND PORTFOLIO // HUGGING FACE</text>
-<rect class="blink" x="{w - 60}" y="16" width="12" height="12" fill="{R}"/>
-<text x="{w - 70}" y="28" {MONO} font-size="14" fill="{DIM}" text-anchor="end">huggingface.co/Harsha001</text>
-<text x="30" y="150" {MONO} font-size="84" font-weight="700" fill="{Y}">{dl:,}</text>
-<text x="34" y="180" {MONO} font-size="15" fill="{DIM}" letter-spacing="3">TOTAL DOWNLOADS</text>
-<text x="30" y="262" {MONO} font-size="54" font-weight="700" fill="{C}">{n_models}</text>
-<text x="34" y="290" {MONO} font-size="15" fill="{DIM}" letter-spacing="3">MODELS PUBLISHED</text>
-<line x1="440" y1="70" x2="440" y2="{h - 30}" stroke="{Y}" stroke-opacity="0.3"/>
+<defs>
+<pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="{Y}" stroke-opacity="0.05"/></pattern>
+<pattern id="scan" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="4" height="1" fill="#fff" opacity="0.035"/></pattern>
+<linearGradient id="sweep" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{Y}" stop-opacity="0"/><stop offset="1" stop-color="{Y}" stop-opacity="0.07"/></linearGradient>
+<radialGradient id="halo"><stop offset="0" stop-color="{Y}" stop-opacity="0.12"/><stop offset="1" stop-color="{Y}" stop-opacity="0"/></radialGradient>
+<style>
+@keyframes gr{{0%,80%,100%{{transform:translate(0,0)}}82%{{transform:translate(-5px,2px)}}84%{{transform:translate(4px,-2px)}}86%{{transform:translate(0,0)}}}}
+@keyframes gc{{0%,80%,100%{{transform:translate(0,0)}}82%{{transform:translate(5px,-2px)}}84%{{transform:translate(-4px,2px)}}86%{{transform:translate(0,0)}}}}
+@keyframes grow{{from{{transform:scaleX(0)}}to{{transform:scaleX(1)}}}}
+@keyframes stamp{{0%{{opacity:0;transform:rotate(-10deg) scale(2.2)}}100%{{opacity:.9;transform:rotate(-10deg) scale(1)}}}}
+@keyframes blink{{50%{{opacity:0}}}}
+@keyframes sweep{{from{{transform:translateY(-120px)}}to{{transform:translateY({h}px)}}}}
+.gr{{animation:gr 4.5s infinite steps(1)}} .gc{{animation:gc 4.5s infinite steps(1)}}
+.bar{{transform-box:fill-box;transform-origin:left;animation:grow 1.2s cubic-bezier(.2,.8,.2,1) both}}
+.b1{{animation-delay:.2s}} .b2{{animation-delay:.4s}} .b3{{animation-delay:.6s}}
+.stamp{{transform-box:fill-box;transform-origin:center;animation:stamp .25s 1.6s both ease-in}}
+.blink{{animation:blink 1s infinite steps(1)}} .sweep{{animation:sweep 7s linear infinite}}
+</style>
+</defs>
+<rect width="{w}" height="{h}" fill="{BG}"/>
+<rect width="{w}" height="{h}" fill="url(#grid)"/>
+<rect class="sweep" width="{w}" height="120" fill="url(#sweep)"/>
+<polygon points="{frame(w - 40, h - 40, 36)}" transform="translate(20,20)" fill="none" stroke="{Y}" stroke-width="2"/>
+<polygon points="21,21 {w - 57},21 {w - 31},47 {w - 31},64 21,64" fill="{Y}"/>
+<text x="40" y="50" {MONO} font-size="19" font-weight="700" fill="{BG}" letter-spacing="2">ARASAKA R&amp;D // MODEL VAULT // SECOND PORTFOLIO</text>
+<text class="blink" x="{w - 50}" y="50" {MONO} font-size="16" font-weight="700" fill="{BG}" text-anchor="end">&#9888; DATA LEAK</text>
+<text x="52" y="90" {MONO} font-size="13" fill="{DIM}" letter-spacing="1">SOURCE huggingface.co/Harsha001   //   SYNCED {stamp}   //   ALL-TIME COUNTS</text>
+<ellipse cx="200" cy="170" rx="210" ry="110" fill="url(#halo)"/>
+{readout(f"{dl:,}", 56, 114, 92, Y)}
+<text x="56" y="238" {MONO} font-size="14" fill="#7D8590" letter-spacing="3">TOTAL DOWNLOADS</text>
+{readout(str(n_models), 56, 262, 50, C)}
+<text x="{56 + segments(str(n_models), 50)[2] + 22:.0f}" y="292" {MONO} font-size="14" fill="#7D8590" letter-spacing="3">MODELS</text>
+<text x="{56 + segments(str(n_models), 50)[2] + 22:.0f}" y="311" {MONO} font-size="14" fill="#7D8590" letter-spacing="3">PUBLISHED</text>
+{tags}
+<line x1="440" y1="110" x2="440" y2="{h - 40}" stroke="{Y}" stroke-opacity="0.3"/>
 {body}
-<text x="470" y="222" {MONO} font-size="14" fill="{C}" letter-spacing="3">MOST DOWNLOADED</text>
+<g class="stamp"><rect x="962" y="104" width="266" height="62" fill="none" stroke="{R}" stroke-width="5"/>
+<text x="1095" y="145" {MONO} font-size="25" font-weight="700" fill="{R}" text-anchor="middle" letter-spacing="3">OPEN WEIGHTS</text></g>
+<text x="470" y="246" {MONO} font-size="14" fill="{C}" letter-spacing="3">MOST DOWNLOADED</text>
+<line x1="470" y1="256" x2="1228" y2="256" stroke="{C}" stroke-opacity="0.25"/>
 {rows}
+<rect x="{w - 190}" y="{h - 14}" width="60" height="6" fill="{Y}"/><rect x="{w - 120}" y="{h - 14}" width="60" height="6" fill="{R}"/>
 <rect width="{w}" height="{h}" fill="url(#scan)"/>
 </svg>"""
 
@@ -432,9 +510,10 @@ def main():
 
     top = sorted(langs.items(), key=lambda kv: -kv[1])[:5]
     save("assets/stats-github.svg", gh_panel(len(own), contrib, top))
-    best = sorted(models, key=lambda m: -m.get("downloadsAllTime", 0))[:3]
+    best = sorted(models, key=lambda m: -m.get("downloadsAllTime", 0))[:4]
     save("assets/hugging-face.svg", hf_panel(hf_dl, len(models),
-                                             [(m["id"].split("/")[1], m.get("downloadsAllTime", 0)) for m in best]))
+                                             [(m["id"].split("/")[1], m.get("downloadsAllTime", 0)) for m in best],
+                                             datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")))
     if os.path.exists("choom.json"):
         save("assets/choom.svg", choom(json.load(open("choom.json", encoding="utf-8"))))
     save("assets/footer.svg", footer())
