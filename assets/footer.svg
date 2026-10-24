@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="70" viewBox="0 0 1280 70">
+<style>@keyframes blink{50%{opacity:0}} .blink{animation:blink 1s infinite steps(1)}</style>
+<line x1="0" y1="20" x2="1280" y2="20" stroke="#FCEE0A" stroke-width="2"/>
+<rect x="0" y="16" width="160" height="8" fill="#FF003C"/>
+<text x="640.0" y="54" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="18" fill="#FCEE0A" text-anchor="middle" letter-spacing="6">// END OF TRANSMISSION <tspan class="blink">&#9608;</tspan></text>
+</svg>

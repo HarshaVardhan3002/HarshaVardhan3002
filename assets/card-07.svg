@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="620" height="210" viewBox="0 0 620 210">
+<defs><pattern id="scan" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="4" height="1" fill="#fff" opacity="0.03"/></pattern>
+<style>@keyframes pulse{0%,100%{opacity:.25}50%{opacity:1}} .p{animation:pulse 2.4s infinite}</style></defs>
+<polygon points="1,1 598,1 619,22 619,209 22,209 1,188" fill="#0E1015" stroke="#FCEE0A" stroke-opacity="0.85" stroke-width="2"/>
+<polygon points="598,1 619,22 619,1" fill="#FCEE0A"/>
+<text x="30" y="46" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="15" fill="#FF003C" letter-spacing="2">07</text>
+<text x="64" y="47" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="30" font-weight="700" fill="#FCEE0A" letter-spacing="2">NAMMA OFFICE</text>
+<text x="30" y="80" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="15" fill="#02D7F2" letter-spacing="3">// PRODUCTIVITY SUITE</text>
+<text x="30" y="122" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="18" fill="#C9D1D9">Spreadsheet, writer and PDF apps</text><text x="30" y="149" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="18" fill="#C9D1D9">with Kannada typing.</text>
+<circle cx="38" cy="178" r="7" fill="#DEA584"/>
+<text x="54" y="184" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="16" fill="#5C6370">Rust</text>
+<rect class="p" x="480" y="30" width="10" height="10" fill="#02D7F2"/>
+<text x="498" y="40" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="13" fill="#5C6370">ACTIVE</text>
+
+<rect width="620" height="210" fill="url(#scan)"/>
+</svg>
