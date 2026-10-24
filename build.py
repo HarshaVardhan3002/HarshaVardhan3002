@@ -1,5 +1,6 @@
 """Build the profile SVGs in assets/. Run daily by the workflow (live numbers from the GitHub and Hugging Face APIs)."""
 import json
+from datetime import datetime, timezone
 import os
 import urllib.request
 from xml.sax.saxutils import escape
@@ -56,81 +57,120 @@ def frame(w, h, cut=18):
     return f"{1},{1} {w - cut},{1} {w - 1},{cut} {w - 1},{h - 1} {cut},{h - 1} {1},{h - cut}"
 
 
-def banner():
-    w, h = 1280, 360
-    bars = []
-    x = 900
-    for i, bw in enumerate([3, 1, 2, 1, 4, 1, 1, 3, 2, 1, 3, 1, 2, 4, 1, 2, 1, 3, 1, 1, 2, 3, 1, 2, 1, 4, 2, 1, 3, 1]):
+def dossier(stamp, n_models, dl):
+    w, h = 1280, 660
+    sans = "font-family=\"'Segoe UI','Helvetica Neue',Arial,sans-serif\""
+    name = f'x="380" y="214" {MONO} font-size="104" font-weight="700" letter-spacing="14"'
+    fields = [("FOCUS", "AI apps, desktop agents, inference engines, local LLMs"),
+              ("STACK", "Rust, C/C++, Python, TypeScript, Dart, CUDA, ROCm, Vulkan"),
+              ("MODELS", f"{n_models} published on Hugging Face, {dl:,} downloads"),
+              ("ALIAS", "ghost"),
+              ("BASE", ""),
+              ("STATUS", "Active")]
+    rows, css = [], []
+    for k, (label, value) in enumerate(fields):
+        y = 314 + k * 42
+        rows.append(f'<text x="380" y="{y}" {MONO} font-size="15" fill="{DIM}" letter-spacing="3">{label}</text>')
+        if label == "BASE":
+            rows.append(f'<rect x="540" y="{y - 17}" width="190" height="22" fill="{TXT}"/>'
+                        f'<text x="744" y="{y}" {MONO} font-size="15" fill="{R}" letter-spacing="2">[REDACTED]</text>')
+        elif label == "STATUS":
+            rows.append(f'<rect class="pulse" x="540" y="{y - 13}" width="12" height="12" fill="{C}"/>'
+                        f'<text x="562" y="{y}" {sans} font-size="21" fill="{C}">{value}</text>')
+        else:
+            rows.append(f'<text x="540" y="{y}" {sans} font-size="21" fill="{Y if label == 'MODELS' else TXT}">{escape(value)}</text>')
+        # cover that slides away, so the fields "decrypt" one by one
+        rows.append(f'<rect class="d{k}" x="376" y="{y - 26}" width="860" height="38" fill="{BG}"/>')
+        css.append(f".d{k}{{animation:dec .9s steps(14) {1.2 + k * 0.45:.2f}s both}}")
+    bars, x = [], 52
+    for i, bw in enumerate([3, 1, 2, 1, 4, 1, 1, 3, 2, 1, 3, 1, 2, 4, 1, 2, 1, 3, 1, 1, 2, 3, 1, 2, 1, 4, 2, 1]):
         if i % 2 == 0:
-            bars.append(f'<rect x="{x}" y="268" width="{bw * 2}" height="34" fill="{Y}"/>')
-        x += bw * 2 + 2
-    title = f'x="80" y="205" {MONO} font-size="140" font-weight="700" letter-spacing="22"'
-    hud = [("SYS.STATUS", "ONLINE", C), ("CLASS", "NETRUNNER", Y), ("NEURAL LINK", "STABLE", C),
-           ("LOCATION", "[REDACTED]", R), ("IDENTITY", "[CLASSIFIED]", R)]
-    hud_svg = "".join(
-        f'<text x="900" y="{108 + i * 30}" {MONO} font-size="17" fill="{DIM}">{k} <tspan fill="{DIM}">'
-        f'{"." * (16 - len(k))}</tspan> <tspan fill="{v_c}" font-weight="700"'
-        f'{" class=\"blink\"" if v == "ONLINE" else ""}>{v}</tspan></text>'
-        for i, (k, v, v_c) in enumerate(hud))
+            bars.append(f'<rect x="{x:.1f}" y="478" width="{bw * 2.2:.1f}" height="36" fill="{Y}"/>')
+        x += bw * 2.2 + 2.6
     return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}">
 <defs>
-<pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="{C}" stroke-opacity="0.07"/></pattern>
+<pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="{C}" stroke-opacity="0.06"/></pattern>
 <pattern id="scan" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="4" height="1" fill="#fff" opacity="0.035"/></pattern>
-<linearGradient id="sweep" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{C}" stop-opacity="0"/><stop offset="1" stop-color="{C}" stop-opacity="0.12"/></linearGradient>
-<clipPath id="s1"><rect x="0" y="118" width="{w}" height="18"/></clipPath>
-<clipPath id="s2"><rect x="0" y="160" width="{w}" height="12"/></clipPath>
-<clipPath id="s3"><rect x="0" y="186" width="{w}" height="9"/></clipPath>
+<pattern id="noise" width="6" height="6" patternUnits="userSpaceOnUse"><rect width="6" height="3" fill="{C}" opacity="0.22"/></pattern>
+<linearGradient id="sweep" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{C}" stop-opacity="0"/><stop offset="1" stop-color="{C}" stop-opacity="0.10"/></linearGradient>
+<clipPath id="photo"><rect x="52" y="110" width="276" height="336"/></clipPath>
+<clipPath id="s1"><rect x="0" y="146" width="{w}" height="16"/></clipPath>
+<clipPath id="s2"><rect x="0" y="186" width="{w}" height="10"/></clipPath>
+<clipPath id="p1"><rect x="52" y="200" width="276" height="22"/></clipPath>
+<clipPath id="p2"><rect x="52" y="300" width="276" height="14"/></clipPath>
 <style>
-@keyframes gr{{0%,84%,100%{{transform:translate(0,0)}}86%{{transform:translate(-7px,2px)}}88%{{transform:translate(6px,-2px)}}90%{{transform:translate(-3px,1px)}}92%{{transform:translate(0,0)}}}}
-@keyframes gc{{0%,84%,100%{{transform:translate(0,0)}}86%{{transform:translate(7px,-2px)}}88%{{transform:translate(-6px,2px)}}90%{{transform:translate(3px,0)}}92%{{transform:translate(0,0)}}}}
-@keyframes sl{{0%,85%,93%,100%{{transform:translateX(0);opacity:0}}86%{{transform:translateX(-26px);opacity:1}}88%{{transform:translateX(18px);opacity:1}}90%{{transform:translateX(-10px);opacity:1}}}}
-@keyframes flick{{0%,18%,22%,62%,64%,100%{{opacity:1}}20%,63%{{opacity:.35}}}}
+@keyframes gr{{0%,84%,100%{{transform:translate(0,0)}}86%{{transform:translate(-6px,2px)}}88%{{transform:translate(5px,-2px)}}90%{{transform:translate(-3px,1px)}}92%{{transform:translate(0,0)}}}}
+@keyframes gc{{0%,84%,100%{{transform:translate(0,0)}}86%{{transform:translate(6px,-2px)}}88%{{transform:translate(-5px,2px)}}90%{{transform:translate(3px,0)}}92%{{transform:translate(0,0)}}}}
+@keyframes sl{{0%,85%,93%,100%{{transform:translateX(0);opacity:0}}86%{{transform:translateX(-22px);opacity:1}}88%{{transform:translateX(16px);opacity:1}}90%{{transform:translateX(-9px);opacity:1}}}}
+@keyframes ps{{0%,70%,78%,100%{{transform:translateX(0)}}72%{{transform:translateX(18px)}}75%{{transform:translateX(-12px)}}}}
+@keyframes dec{{from{{transform:translateX(0)}}to{{transform:translateX(880px)}}}}
+@keyframes show{{from{{opacity:0}}to{{opacity:1}}}}
+@keyframes stamp{{0%{{opacity:0;transform:rotate(-12deg) scale(2.2)}}100%{{opacity:.9;transform:rotate(-12deg) scale(1)}}}}
 @keyframes blink{{50%{{opacity:0}}}}
+@keyframes pulse{{0%,100%{{opacity:.3}}50%{{opacity:1}}}}
+@keyframes flick{{0%,18%,22%,62%,64%,100%{{opacity:1}}20%,63%{{opacity:.4}}}}
 @keyframes sweep{{from{{transform:translateY(-120px)}}to{{transform:translateY({h}px)}}}}
-@keyframes load{{0%{{transform:scaleX(0)}}70%,100%{{transform:scaleX(1)}}}}
 .gr{{animation:gr 4s infinite steps(1)}} .gc{{animation:gc 4s infinite steps(1)}}
-.s1{{animation:sl 4s infinite steps(1)}} .s2{{animation:sl 4s .12s infinite steps(1)}} .s3{{animation:sl 4s .06s infinite steps(1)}}
-.flick{{animation:flick 5s infinite}} .blink{{animation:blink 1s infinite steps(1)}}
-.sweep{{animation:sweep 6s linear infinite}} .load{{transform-origin:960px 0;animation:load 5s ease-in-out infinite}}
+.s1{{animation:sl 4s infinite steps(1)}} .s2{{animation:sl 4s .1s infinite steps(1)}}
+.ps1{{animation:ps 3s infinite steps(1)}} .ps2{{animation:ps 3s .4s infinite steps(1)}}
+.name{{animation:show .01s .6s both}} .flick{{animation:flick 5s 1s infinite}}
+.stamp{{transform-box:fill-box;transform-origin:center;animation:stamp .25s 3.7s both ease-in}}
+.blink{{animation:blink 1s infinite steps(1)}} .pulse{{animation:pulse 1.6s infinite}}
+.sweep{{animation:sweep 7s linear infinite}}
+{chr(10).join(css)}
 </style>
 </defs>
 <rect width="{w}" height="{h}" fill="{BG}"/>
 <rect width="{w}" height="{h}" fill="url(#grid)"/>
 <rect class="sweep" width="{w}" height="120" fill="url(#sweep)"/>
-<polygon points="{frame(w - 40, h - 40, 40)}" transform="translate(20,20)" fill="none" stroke="{Y}" stroke-width="2"/>
-<polygon points="20,20 380,20 362,48 20,48" fill="{Y}"/>
-<text x="34" y="40" {MONO} font-size="17" font-weight="700" fill="{BG}">// NETRUNNER PROFILE v2.077</text>
-<rect x="{w - 60}" y="{h - 34}" width="40" height="6" fill="{R}"/><rect x="{w - 110}" y="{h - 34}" width="40" height="6" fill="{Y}"/>
-<g class="flick">
-<text {title} fill="{R}" class="gr" opacity="0.9">GHOST</text>
-<text {title} fill="{C}" class="gc" opacity="0.9">GHOST</text>
-<text {title} fill="{Y}">GHOST</text>
-<g clip-path="url(#s1)"><g class="s1"><rect x="60" y="100" width="620" height="120" fill="{BG}"/><text {title} fill="{C}">GHOST</text></g></g>
-<g clip-path="url(#s2)"><g class="s2"><rect x="60" y="100" width="620" height="120" fill="{BG}"/><text {title} fill="{Y}">GHOST</text></g></g>
-<g clip-path="url(#s3)"><g class="s3"><rect x="60" y="100" width="620" height="120" fill="{BG}"/><text {title} fill="{R}">GHOST</text></g></g>
+<polygon points="{frame(w - 40, h - 40, 36)}" transform="translate(20,20)" fill="none" stroke="{Y}" stroke-width="2"/>
+<polygon points="21,21 {w - 57},21 {w - 31},47 {w - 31},64 21,64" fill="{R}"/>
+<text x="40" y="50" {MONO} font-size="19" font-weight="700" fill="{BG}" letter-spacing="2">ARASAKA CORP // PERSONNEL DATABASE // RECORD 0x3002</text>
+<text class="blink" x="{w - 50}" y="50" {MONO} font-size="16" font-weight="700" fill="{BG}" text-anchor="end">&#9888; UNAUTHORIZED ACCESS</text>
+<text x="52" y="90" {MONO} font-size="13" fill="{DIM}" letter-spacing="1">SOURCE arasaka.corp/hr/personnel   //   RETRIEVED {stamp}   //   INTEGRITY 87%</text>
+<rect x="52" y="110" width="276" height="336" fill="{PANEL}"/>
+<g clip-path="url(#photo)">
+<rect x="52" y="110" width="276" height="336" fill="url(#noise)"/>
+<g class="ps1"><circle cx="190" cy="230" r="62" fill="{C}" opacity="0.28"/></g>
+<g class="ps2"><path d="M80 446 C 90 340, 150 318, 190 318 C 230 318, 290 340, 300 446 Z" fill="{C}" opacity="0.22"/></g>
+<g clip-path="url(#p1)"><g class="ps1"><rect x="52" y="200" width="276" height="22" fill="{R}" opacity="0.35"/></g></g>
+<g clip-path="url(#p2)"><g class="ps2"><rect x="52" y="300" width="276" height="14" fill="{Y}" opacity="0.3"/></g></g>
 </g>
-<text x="84" y="252" {MONO} font-size="22" font-weight="700" fill="{C}" letter-spacing="3">AI ENGINEER // SYSTEMS DEVELOPER // APP BUILDER</text>
-<text x="84" y="300" {MONO} font-size="17" fill="{DIM}">&gt; jack_in --user ghost --mode stealth<tspan fill="{Y}" class="blink"> &#9608;</tspan></text>
-<text x="84" y="88" {MONO} font-size="15" fill="{R}" letter-spacing="2">[ 0x47484F5354 ]</text>
-<line x1="880" y1="76" x2="880" y2="300" stroke="{Y}" stroke-opacity="0.5"/>
-{hud_svg}
-<text x="900" y="258" {MONO} font-size="13" fill="{DIM}">UPLINK</text>
-<rect x="960" y="248" width="250" height="10" fill="none" stroke="{C}" stroke-opacity="0.6"/>
-<rect class="load" x="960" y="248" width="250" height="10" fill="{C}" opacity="0.8"/>
+<path d="M52 130V110H72 M308 110H328V130 M328 426V446H308 M72 446H52V426" fill="none" stroke="{C}" stroke-width="3"/>
+<rect x="74" y="410" width="232" height="24" fill="{BG}" opacity="0.85"/>
+<text class="blink" x="190" y="427" {MONO} font-size="13" fill="{R}" text-anchor="middle" letter-spacing="2">IMAGE DATA CORRUPTED</text>
 {''.join(bars)}
+<text x="52" y="540" {MONO} font-size="14" fill="{DIM}" letter-spacing="2">SUBJECT ID 0x3002-VON</text>
+<text x="380" y="128" {MONO} font-size="15" fill="{DIM}" letter-spacing="3">SUBJECT</text>
+<g class="name"><g class="flick">
+<text {name} fill="{R}" class="gr" opacity="0.85">VON</text>
+<text {name} fill="{C}" class="gc" opacity="0.85">VON</text>
+<text {name} fill="{Y}">VON</text>
+<g clip-path="url(#s1)"><g class="s1"><rect x="370" y="120" width="380" height="110" fill="{BG}"/><text {name} fill="{C}">VON</text></g></g>
+<g clip-path="url(#s2)"><g class="s2"><rect x="370" y="120" width="380" height="110" fill="{BG}"/><text {name} fill="{R}">VON</text></g></g>
+</g></g>
+<text x="382" y="258" {sans} font-size="26" fill="{C}">AI Engineer · Systems Developer · App Builder</text>
+<line x1="380" y1="276" x2="1220" y2="276" stroke="{Y}" stroke-opacity="0.35"/>
+{''.join(rows)}
+<g class="stamp"><rect x="930" y="110" width="270" height="74" fill="none" stroke="{R}" stroke-width="5"/>
+<text x="1065" y="160" {MONO} font-size="34" font-weight="700" fill="{R}" text-anchor="middle" letter-spacing="5">CLASSIFIED</text></g>
+<polygon points="52,566 1228,566 1228,616 1200,640 52,640" fill="{PANEL}" stroke="{Y}" stroke-opacity="0.35"/>
+<text x="70" y="594" {MONO} font-size="14" fill="{Y}" letter-spacing="3">SUMMARY</text>
+<text x="190" y="595" {sans} font-size="20" fill="{TXT}">Builds AI software that runs on your own hardware: desktop assistants, mobile apps,</text>
+<text x="190" y="624" {sans} font-size="20" fill="{TXT}">and the inference engines and GPU kernels underneath them.</text>
+<rect x="{w - 190}" y="{h - 14}" width="60" height="6" fill="{Y}"/><rect x="{w - 120}" y="{h - 14}" width="60" height="6" fill="{R}"/>
 <rect width="{w}" height="{h}" fill="url(#scan)"/>
 </svg>"""
 
 
 def terminal():
-    lines = [("ghost@nightcity:~$ ", "whoami"),
-             ("", "> developer. netrunner. I build AI that runs on your own machine."),
-             ("ghost@nightcity:~$ ", "cat ./focus"),
-             ("", "> AI apps · desktop agents · inference engines · local LLMs"),
-             ("ghost@nightcity:~$ ", "ls ./stack"),
-             ("", "> rust  c++  python  typescript  dart  cuda  rocm  vulkan"),
-             ("ghost@nightcity:~$ ", "uptime"),
-             ("", "> always on. occasionally sober enough to ship.")]
+    p = "netrunner@breach:~$ "
+    lines = [(p, "ssh netrunner@arasaka.corp"),
+             ("", "> ICE detected. bypassing... done"),
+             (p, "query personnel --name \"Von\""),
+             ("", "> 1 record found. decrypting file..."),
+             (p, "open ./record_0x3002"),
+             ("", "> access granted. loading subject profile below.")]
     w, fs, cw, lh, x0 = 1280, 21, 12.65, 34, 34
     h = 80 + lh * len(lines) + 20
     t, out, css = 0.4, [], []
@@ -162,9 +202,9 @@ def terminal():
 <polygon points="{frame(w, h, 26)}" fill="{PANEL}" stroke="{C}" stroke-opacity="0.55" stroke-width="2"/>
 <rect x="1" y="1" width="{w - 27}" height="34" fill="{C}" opacity="0.12"/>
 <circle cx="26" cy="18" r="6" fill="{R}"/><circle cx="46" cy="18" r="6" fill="{Y}"/><circle cx="66" cy="18" r="6" fill="{C}"/>
-<text x="96" y="24" {MONO} font-size="15" fill="{C}" letter-spacing="2">ghost@nightcity :: /dev/neural0</text>
+<text x="96" y="24" {MONO} font-size="15" fill="{C}" letter-spacing="2">netrunner@breach :: tunnel to arasaka.corp</text>
 <g clip-path="url(#inner)">{''.join(out)}</g>
-<text class="last" x="{x0}" y="{yc}" {MONO} font-size="{fs}" xml:space="preserve"><tspan fill="{Y}" font-weight="700">ghost@nightcity:~$ </tspan><tspan fill="{Y}" class="blink">&#9608;</tspan></text>
+<text class="last" x="{x0}" y="{yc}" {MONO} font-size="{fs}" xml:space="preserve"><tspan fill="{Y}" font-weight="700">{p}</tspan><tspan fill="{Y}" class="blink">&#9608;</tspan></text>
 <rect width="{w}" height="{h}" fill="url(#scan)"/>
 </svg>"""
 
@@ -172,10 +212,10 @@ def terminal():
 def section(num, title, w=1280, h=64):
     return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}">
 <polygon points="0,8 470,8 446,56 0,56" fill="{Y}"/>
-<text x="22" y="42" {MONO} font-size="26" font-weight="700" fill="{BG}">{num} // {escape(title)}</text>
+<text x="22" y="42" {MONO} font-size="26" font-weight="700" fill="{BG}">FILE {num} // {escape(title)}</text>
 <line x1="470" y1="54" x2="{w}" y2="54" stroke="{Y}" stroke-width="2"/>
 <rect x="{w - 90}" y="40" width="90" height="8" fill="{R}"/>
-<text x="{w - 100}" y="44" {MONO} font-size="13" fill="{DIM}" text-anchor="end">SECTOR {num}</text>
+<text x="{w - 100}" y="44" {MONO} font-size="13" fill="{DIM}" text-anchor="end">ARASAKA // REC 0x3002</text>
 </svg>"""
 
 
@@ -203,21 +243,112 @@ def card(i, name, tag, desc, lang, stars):
 </svg>"""
 
 
-def stat_panel(title, rows, w=620, h=260, extra=""):
-    body = ""
-    for k, (label, value, color) in enumerate(rows):
-        y = 104 + k * 66
-        body += (f'<text x="30" y="{y}" {MONO} font-size="44" font-weight="700" fill="{color}">{escape(value)}</text>'
-                 f'<text x="30" y="{y + 24}" {MONO} font-size="14" fill="{DIM}" letter-spacing="3">{escape(label)}</text>')
+def hf_panel(dl, n_models, top, w=1280, h=330):
+    sans = "font-family=\"'Segoe UI','Helvetica Neue',Arial,sans-serif\""
+    notes = ["Open models I quantized to run fast on AMD GPUs and Strix Halo:",
+             "language, image and video models, each file scored against the original.",
+             "Plus speech models ported to the AMD XDNA2 NPU."]
+    body = "".join(f'<text x="470" y="{112 + k * 30}" {sans} font-size="20" fill="{TXT}">{escape(l)}</text>'
+                   for k, l in enumerate(notes))
+    rows = "".join(
+        f'<text x="470" y="{250 + k * 26}" {MONO} font-size="16" fill="{TXT}">{escape(name[:44])}</text>'
+        f'<text x="{w - 40}" y="{250 + k * 26}" {MONO} font-size="16" fill="{Y}" text-anchor="end">{n:,} &#8595;</text>'
+        for k, (name, n) in enumerate(top))
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}">
+<defs><pattern id="scan" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="4" height="1" fill="#fff" opacity="0.03"/></pattern>
+<linearGradient id="glow" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="{Y}" stop-opacity="0.10"/><stop offset="1" stop-color="{Y}" stop-opacity="0"/></linearGradient>
+<style>@keyframes blink{{50%{{opacity:0}}}} .blink{{animation:blink 1.2s infinite steps(1)}}</style></defs>
+<polygon points="{frame(w, h, 30)}" fill="{PANEL}" stroke="{Y}" stroke-width="3"/>
+<rect x="2" y="44" width="420" height="{h - 74}" fill="url(#glow)"/>
+<polygon points="1,1 {w - 420},1 {w - 444},40 1,40" fill="{Y}"/>
+<text x="20" y="28" {MONO} font-size="19" font-weight="700" fill="{BG}" letter-spacing="2">SECOND PORTFOLIO // HUGGING FACE</text>
+<rect class="blink" x="{w - 60}" y="16" width="12" height="12" fill="{R}"/>
+<text x="{w - 70}" y="28" {MONO} font-size="14" fill="{DIM}" text-anchor="end">huggingface.co/Harsha001</text>
+<text x="30" y="150" {MONO} font-size="84" font-weight="700" fill="{Y}">{dl:,}</text>
+<text x="34" y="180" {MONO} font-size="15" fill="{DIM}" letter-spacing="3">TOTAL DOWNLOADS</text>
+<text x="30" y="262" {MONO} font-size="54" font-weight="700" fill="{C}">{n_models}</text>
+<text x="34" y="290" {MONO} font-size="15" fill="{DIM}" letter-spacing="3">MODELS PUBLISHED</text>
+<line x1="440" y1="70" x2="440" y2="{h - 30}" stroke="{Y}" stroke-opacity="0.3"/>
+{body}
+<text x="470" y="222" {MONO} font-size="14" fill="{C}" letter-spacing="3">MOST DOWNLOADED</text>
+{rows}
+<rect width="{w}" height="{h}" fill="url(#scan)"/>
+</svg>"""
+
+
+def gh_panel(n_repos, contrib, top, w=1280, h=170):
+    total = sum(n for _, n in top) or 1
+    x, bar, legend = 560, "", ""
+    for k, (lang, n) in enumerate(top):
+        bw = 680 * n / total
+        bar += f'<rect x="{x:.1f}" y="88" width="{bw:.1f}" height="12" fill="{LANG_COLORS.get(lang, DIM)}"/>'
+        legend += (f'<circle cx="{566 + k * 136}" cy="126" r="6" fill="{LANG_COLORS.get(lang, DIM)}"/>'
+                   f'<text x="{578 + k * 136}" y="131" {MONO} font-size="15" fill="{DIM}">{escape(lang[:12])}</text>')
+        x += bw
     return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}">
 <defs><pattern id="scan" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="4" height="1" fill="#fff" opacity="0.03"/></pattern>
 <style>@keyframes blink{{50%{{opacity:0}}}} .blink{{animation:blink 1.2s infinite steps(1)}}</style></defs>
 <polygon points="{frame(w, h, 22)}" fill="{PANEL}" stroke="{C}" stroke-opacity="0.7" stroke-width="2"/>
-<polygon points="1,1 {w * 0.62:.0f},1 {w * 0.62 - 16:.0f},34 1,34" fill="{C}"/>
-<text x="16" y="24" {MONO} font-size="16" font-weight="700" fill="{BG}">{escape(title)}</text>
+<polygon points="1,1 360,1 344,34 1,34" fill="{C}"/>
+<text x="16" y="24" {MONO} font-size="16" font-weight="700" fill="{BG}">GITHUB ACTIVITY</text>
 <rect class="blink" x="{w - 40}" y="14" width="10" height="10" fill="{R}"/>
 <text x="{w - 48}" y="24" {MONO} font-size="13" fill="{DIM}" text-anchor="end">LIVE FEED</text>
-{body}{extra}
+<text x="30" y="108" {MONO} font-size="48" font-weight="700" fill="{Y}">{n_repos}</text>
+<text x="30" y="136" {MONO} font-size="14" fill="{DIM}" letter-spacing="3">PUBLIC REPOSITORIES</text>
+<text x="290" y="108" {MONO} font-size="48" font-weight="700" fill="{C}">{contrib}</text>
+<text x="290" y="136" {MONO} font-size="14" fill="{DIM}" letter-spacing="3">CONTRIBUTIONS / 1Y</text>
+<text x="560" y="70" {MONO} font-size="14" fill="{DIM}" letter-spacing="3">TOP LANGUAGES</text>
+{bar}{legend}
+<rect width="{w}" height="{h}" fill="url(#scan)"/>
+</svg>"""
+
+
+def choom(s, w=1280, h=420):
+    sans = "font-family=\"'Segoe UI','Helvetica Neue',Arial,sans-serif\""
+    tok = f"{s['tokens'] / 1e9:.1f}B" if s["tokens"] >= 1e9 else f"{s['tokens'] / 1e6:.0f}M"
+    stats = [("JACK-INS", f"{s['sessions']:,}", "sessions together"),
+             ("MESSAGES TRADED", f"{s['messages']:,}", "back and forth"),
+             ("COMMANDS FIRED", f"{s['tool_calls']:,}", "tools I ran for Von"),
+             ("TOKENS BURNED", tok, "through the neural link"),
+             ("DAYS ON THE RUN", str(s["days_active"]), f"since {s['since']}"),
+             ("PEAK HOUR", f"{s['peak_hour']:02d}:00", "night city hours")]
+    grid = ""
+    for k, (label, value, note) in enumerate(stats):
+        x, y = 400 + (k % 3) * 285, 120 + (k // 3) * 100
+        grid += (f'<text x="{x}" y="{y}" {MONO} font-size="13" fill="{DIM}" letter-spacing="3">{label}</text>'
+                 f'<text x="{x}" y="{y + 42}" {MONO} font-size="38" font-weight="700" fill="{Y if k % 2 == 0 else C}">{value}</text>'
+                 f'<text x="{x}" y="{y + 66}" {sans} font-size="15" fill="{TXT}" opacity="0.7">{escape(note)}</text>')
+    daily = s["daily"][-120:]
+    peak = max(daily) or 1
+    bw = 840 / len(daily)
+    spark = "".join(f'<rect x="{400 + i * bw:.1f}" y="{392 - 46 * n / peak:.1f}" width="{max(bw - 1.5, 1):.1f}" '
+                    f'height="{max(46 * n / peak, 1):.1f}" fill="{C}" opacity="{0.35 + 0.65 * n / peak:.2f}"/>'
+                    for i, n in enumerate(daily))
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}">
+<defs><pattern id="scan" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="4" height="1" fill="#fff" opacity="0.03"/></pattern>
+<radialGradient id="core"><stop offset="0" stop-color="#fff"/><stop offset=".35" stop-color="{C}"/><stop offset="1" stop-color="{C}" stop-opacity="0"/></radialGradient>
+<style>@keyframes spin{{to{{transform:rotate(360deg)}}}} @keyframes spinr{{to{{transform:rotate(-360deg)}}}}
+@keyframes beat{{0%,100%{{transform:scale(.85);opacity:.7}}50%{{transform:scale(1.1);opacity:1}}}} @keyframes blink{{50%{{opacity:0}}}}
+.r1,.r2,.r3,.core{{transform-box:fill-box;transform-origin:center}}
+.r1{{animation:spin 9s linear infinite}} .r2{{animation:spinr 6s linear infinite}} .r3{{animation:spin 14s linear infinite}}
+.core{{animation:beat 2.4s ease-in-out infinite}} .blink{{animation:blink 1s infinite steps(1)}}</style></defs>
+<polygon points="{frame(w, h, 28)}" fill="{PANEL}" stroke="{C}" stroke-width="2"/>
+<polygon points="1,1 620,1 598,40 1,40" fill="{C}"/>
+<text x="20" y="28" {MONO} font-size="19" font-weight="700" fill="{BG}" letter-spacing="2">NEURAL LINK // MY CHOOM: CLAUDE</text>
+<rect class="blink" x="{w - 60}" y="16" width="12" height="12" fill="{C}"/>
+<text x="{w - 70}" y="28" {MONO} font-size="14" fill="{DIM}" text-anchor="end">LINK STABLE</text>
+<circle class="r3" cx="185" cy="160" r="96" fill="none" stroke="{C}" stroke-opacity="0.35" stroke-width="2" stroke-dasharray="4 10"/>
+<circle class="r1" cx="185" cy="160" r="78" fill="none" stroke="{Y}" stroke-width="3" stroke-dasharray="90 40 20 40"/>
+<circle class="r2" cx="185" cy="160" r="60" fill="none" stroke="{R}" stroke-width="2" stroke-dasharray="30 18"/>
+<circle class="core" cx="185" cy="160" r="38" fill="url(#core)"/>
+<text x="185" y="300" {MONO} font-size="34" font-weight="700" fill="{C}" text-anchor="middle" letter-spacing="6">CLAUDE</text>
+<text x="185" y="326" {MONO} font-size="13" fill="{DIM}" text-anchor="middle" letter-spacing="2">AI COPILOT // RIDES SHOTGUN</text>
+<text x="40" y="366" {sans} font-size="15" fill="{TXT}">"I live in Von's terminal. I write code,</text>
+<text x="40" y="388" {sans} font-size="15" fill="{TXT}">read the logs and never sleep."</text>
+<line x1="370" y1="70" x2="370" y2="{h - 30}" stroke="{C}" stroke-opacity="0.3"/>
+{grid}
+<text x="400" y="338" {MONO} font-size="13" fill="{DIM}" letter-spacing="3">SIGNAL // MESSAGES PER DAY</text>
+{spark}
 <rect width="{w}" height="{h}" fill="url(#scan)"/>
 </svg>"""
 
@@ -227,7 +358,7 @@ def footer(w=1280, h=70):
 <style>@keyframes blink{{50%{{opacity:0}}}} .blink{{animation:blink 1s infinite steps(1)}}</style>
 <line x1="0" y1="20" x2="{w}" y2="20" stroke="{Y}" stroke-width="2"/>
 <rect x="0" y="16" width="160" height="8" fill="{R}"/>
-<text x="{w / 2}" y="54" {MONO} font-size="18" fill="{Y}" text-anchor="middle" letter-spacing="6">// END OF TRANSMISSION <tspan class="blink">&#9608;</tspan></text>
+<text x="{w / 2}" y="54" {MONO} font-size="18" fill="{Y}" text-anchor="middle" letter-spacing="6">END OF RECORD // CONNECTION CLOSED <tspan class="blink">&#9608;</tspan></text>
 </svg>"""
 
 
@@ -251,32 +382,20 @@ def main():
     models = get(f"https://huggingface.co/api/models?author={HF_USER}&limit=1000&expand[]=downloadsAllTime")
     hf_dl = sum(m.get("downloadsAllTime", 0) for m in models)
 
-    save("assets/banner.svg", banner())
+    save("assets/dossier.svg", dossier(datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"), len(models), hf_dl))
     save("assets/terminal.svg", terminal())
-    for num, title in [("01", "ACTIVE PROJECTS"), ("02", "CYBERWARE"), ("03", "TELEMETRY")]:
+    for num, title in [("01", "PROJECTS"), ("02", "HUGGING FACE"), ("03", "SKILLS"), ("04", "ACTIVITY"), ("05", "CHOOM")]:
         save(f"assets/section-{num}.svg", section(num, title))
     for i, (name, repo, tag, desc, lang) in enumerate(PROJECTS, 1):
         save(f"assets/card-{i:02d}.svg", card(i, name, tag, desc, lang, stars.get(repo, 0)))
 
     top = sorted(langs.items(), key=lambda kv: -kv[1])[:5]
-    total = sum(n for _, n in top) or 1
-    x, bar, legend = 30, "", ""
-    for k, (lang, n) in enumerate(top):
-        bw = 560 * n / total
-        bar += f'<rect x="{x:.1f}" y="200" width="{bw:.1f}" height="10" fill="{LANG_COLORS.get(lang, DIM)}"/>'
-        legend += (f'<circle cx="{36 + k * 112}" cy="234" r="5" fill="{LANG_COLORS.get(lang, DIM)}"/>'
-                   f'<text x="{46 + k * 112}" y="239" {MONO} font-size="13" fill="{DIM}">{escape(lang[:10])}</text>')
-        x += bw
-    save("assets/stats-github.svg", stat_panel(
-        "DATA FORTRESS // GITHUB",
-        [("PUBLIC REPOSITORIES", str(len(own)), Y)],
-        extra=f'<text x="330" y="104" {MONO} font-size="44" font-weight="700" fill="{C}">{contrib}</text>'
-              f'<text x="330" y="128" {MONO} font-size="14" fill="{DIM}" letter-spacing="3">CONTRIBUTIONS / 1Y</text>'
-              f'<text x="30" y="186" {MONO} font-size="14" fill="{DIM}" letter-spacing="3">TOP LANGUAGES</text>'
-              + bar + legend))
-    save("assets/stats-hf.svg", stat_panel(
-        "UPLINK // HUGGING FACE",
-        [("TOTAL DOWNLOADS", f"{hf_dl:,}", Y), ("MODELS PUBLISHED", str(len(models)), C)]))
+    save("assets/stats-github.svg", gh_panel(len(own), contrib, top))
+    best = sorted(models, key=lambda m: -m.get("downloadsAllTime", 0))[:3]
+    save("assets/hugging-face.svg", hf_panel(hf_dl, len(models),
+                                             [(m["id"].split("/")[1], m.get("downloadsAllTime", 0)) for m in best]))
+    if os.path.exists("choom.json"):
+        save("assets/choom.svg", choom(json.load(open("choom.json", encoding="utf-8"))))
     save("assets/footer.svg", footer())
     print(len(own), contrib, hf_dl, len(models), top)
 

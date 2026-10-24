@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="660" viewBox="0 0 1280 660">
+<defs>
+<pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#02D7F2" stroke-opacity="0.06"/></pattern>
+<pattern id="scan" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="4" height="1" fill="#fff" opacity="0.035"/></pattern>
+<pattern id="noise" width="6" height="6" patternUnits="userSpaceOnUse"><rect width="6" height="3" fill="#02D7F2" opacity="0.22"/></pattern>
+<linearGradient id="sweep" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#02D7F2" stop-opacity="0"/><stop offset="1" stop-color="#02D7F2" stop-opacity="0.10"/></linearGradient>
+<clipPath id="photo"><rect x="52" y="110" width="276" height="336"/></clipPath>
+<clipPath id="s1"><rect x="0" y="146" width="1280" height="16"/></clipPath>
+<clipPath id="s2"><rect x="0" y="186" width="1280" height="10"/></clipPath>
+<clipPath id="p1"><rect x="52" y="200" width="276" height="22"/></clipPath>
+<clipPath id="p2"><rect x="52" y="300" width="276" height="14"/></clipPath>
+<style>
+@keyframes gr{0%,84%,100%{transform:translate(0,0)}86%{transform:translate(-6px,2px)}88%{transform:translate(5px,-2px)}90%{transform:translate(-3px,1px)}92%{transform:translate(0,0)}}
+@keyframes gc{0%,84%,100%{transform:translate(0,0)}86%{transform:translate(6px,-2px)}88%{transform:translate(-5px,2px)}90%{transform:translate(3px,0)}92%{transform:translate(0,0)}}
+@keyframes sl{0%,85%,93%,100%{transform:translateX(0);opacity:0}86%{transform:translateX(-22px);opacity:1}88%{transform:translateX(16px);opacity:1}90%{transform:translateX(-9px);opacity:1}}
+@keyframes ps{0%,70%,78%,100%{transform:translateX(0)}72%{transform:translateX(18px)}75%{transform:translateX(-12px)}}
+@keyframes dec{from{transform:translateX(0)}to{transform:translateX(880px)}}
+@keyframes show{from{opacity:0}to{opacity:1}}
+@keyframes stamp{0%{opacity:0;transform:rotate(-12deg) scale(2.2)}100%{opacity:.9;transform:rotate(-12deg) scale(1)}}
+@keyframes blink{50%{opacity:0}}
+@keyframes pulse{0%,100%{opacity:.3}50%{opacity:1}}
+@keyframes flick{0%,18%,22%,62%,64%,100%{opacity:1}20%,63%{opacity:.4}}
+@keyframes sweep{from{transform:translateY(-120px)}to{transform:translateY(660px)}}
+.gr{animation:gr 4s infinite steps(1)} .gc{animation:gc 4s infinite steps(1)}
+.s1{animation:sl 4s infinite steps(1)} .s2{animation:sl 4s .1s infinite steps(1)}
+.ps1{animation:ps 3s infinite steps(1)} .ps2{animation:ps 3s .4s infinite steps(1)}
+.name{animation:show .01s .6s both} .flick{animation:flick 5s 1s infinite}
+.stamp{transform-box:fill-box;transform-origin:center;animation:stamp .25s 3.7s both ease-in}
+.blink{animation:blink 1s infinite steps(1)} .pulse{animation:pulse 1.6s infinite}
+.sweep{animation:sweep 7s linear infinite}
+.d0{animation:dec .9s steps(14) 1.20s both}
+.d1{animation:dec .9s steps(14) 1.65s both}
+.d2{animation:dec .9s steps(14) 2.10s both}
+.d3{animation:dec .9s steps(14) 2.55s both}
+.d4{animation:dec .9s steps(14) 3.00s both}
+.d5{animation:dec .9s steps(14) 3.45s both}
+</style>
+</defs>
+<rect width="1280" height="660" fill="#07080B"/>
+<rect width="1280" height="660" fill="url(#grid)"/>
+<rect class="sweep" width="1280" height="120" fill="url(#sweep)"/>
+<polygon points="1,1 1204,1 1239,36 1239,619 36,619 1,584" transform="translate(20,20)" fill="none" stroke="#FCEE0A" stroke-width="2"/>
+<polygon points="21,21 1223,21 1249,47 1249,64 21,64" fill="#FF003C"/>
+<text x="40" y="50" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="19" font-weight="700" fill="#07080B" letter-spacing="2">ARASAKA CORP // PERSONNEL DATABASE // RECORD 0x3002</text>
+<text class="blink" x="1230" y="50" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="16" font-weight="700" fill="#07080B" text-anchor="end">&#9888; UNAUTHORIZED ACCESS</text>
+<text x="52" y="90" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="13" fill="#5C6370" letter-spacing="1">SOURCE arasaka.corp/hr/personnel   //   RETRIEVED 2026-10-24 21:46 UTC   //   INTEGRITY 87%</text>
+<rect x="52" y="110" width="276" height="336" fill="#0E1015"/>
+<g clip-path="url(#photo)">
+<rect x="52" y="110" width="276" height="336" fill="url(#noise)"/>
+<g class="ps1"><circle cx="190" cy="230" r="62" fill="#02D7F2" opacity="0.28"/></g>
+<g class="ps2"><path d="M80 446 C 90 340, 150 318, 190 318 C 230 318, 290 340, 300 446 Z" fill="#02D7F2" opacity="0.22"/></g>
+<g clip-path="url(#p1)"><g class="ps1"><rect x="52" y="200" width="276" height="22" fill="#FF003C" opacity="0.35"/></g></g>
+<g clip-path="url(#p2)"><g class="ps2"><rect x="52" y="300" width="276" height="14" fill="#FCEE0A" opacity="0.3"/></g></g>
+</g>
+<path d="M52 130V110H72 M308 110H328V130 M328 426V446H308 M72 446H52V426" fill="none" stroke="#02D7F2" stroke-width="3"/>
+<rect x="74" y="410" width="232" height="24" fill="#07080B" opacity="0.85"/>
+<text class="blink" x="190" y="427" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="13" fill="#FF003C" text-anchor="middle" letter-spacing="2">IMAGE DATA CORRUPTED</text>
+<rect x="52.0" y="478" width="6.6" height="36" fill="#FCEE0A"/><rect x="66.0" y="478" width="4.4" height="36" fill="#FCEE0A"/><rect x="77.8" y="478" width="8.8" height="36" fill="#FCEE0A"/><rect x="94.0" y="478" width="2.2" height="36" fill="#FCEE0A"/><rect x="108.0" y="478" width="4.4" height="36" fill="#FCEE0A"/><rect x="119.8" y="478" width="6.6" height="36" fill="#FCEE0A"/><rect x="133.8" y="478" width="4.4" height="36" fill="#FCEE0A"/><rect x="152.2" y="478" width="2.2" height="36" fill="#FCEE0A"/><rect x="164.0" y="478" width="2.2" height="36" fill="#FCEE0A"/><rect x="178.0" y="478" width="2.2" height="36" fill="#FCEE0A"/><rect x="187.6" y="478" width="4.4" height="36" fill="#FCEE0A"/><rect x="203.8" y="478" width="2.2" height="36" fill="#FCEE0A"/><rect x="215.6" y="478" width="2.2" height="36" fill="#FCEE0A"/><rect x="231.8" y="478" width="4.4" height="36" fill="#FCEE0A"/>
+<text x="52" y="540" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="14" fill="#5C6370" letter-spacing="2">SUBJECT ID 0x3002-VON</text>
+<text x="380" y="128" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="15" fill="#5C6370" letter-spacing="3">SUBJECT</text>
+<g class="name"><g class="flick">
+<text x="380" y="214" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="104" font-weight="700" letter-spacing="14" fill="#FF003C" class="gr" opacity="0.85">VON</text>
+<text x="380" y="214" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="104" font-weight="700" letter-spacing="14" fill="#02D7F2" class="gc" opacity="0.85">VON</text>
+<text x="380" y="214" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="104" font-weight="700" letter-spacing="14" fill="#FCEE0A">VON</text>
+<g clip-path="url(#s1)"><g class="s1"><rect x="370" y="120" width="380" height="110" fill="#07080B"/><text x="380" y="214" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="104" font-weight="700" letter-spacing="14" fill="#02D7F2">VON</text></g></g>
+<g clip-path="url(#s2)"><g class="s2"><rect x="370" y="120" width="380" height="110" fill="#07080B"/><text x="380" y="214" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="104" font-weight="700" letter-spacing="14" fill="#FF003C">VON</text></g></g>
+</g></g>
+<text x="382" y="258" font-family="'Segoe UI','Helvetica Neue',Arial,sans-serif" font-size="26" fill="#02D7F2">AI Engineer · Systems Developer · App Builder</text>
+<line x1="380" y1="276" x2="1220" y2="276" stroke="#FCEE0A" stroke-opacity="0.35"/>
+<text x="380" y="314" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="15" fill="#5C6370" letter-spacing="3">FOCUS</text><text x="540" y="314" font-family="'Segoe UI','Helvetica Neue',Arial,sans-serif" font-size="21" fill="#C9D1D9">AI apps, desktop agents, inference engines, local LLMs</text><rect class="d0" x="376" y="288" width="860" height="38" fill="#07080B"/><text x="380" y="356" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="15" fill="#5C6370" letter-spacing="3">STACK</text><text x="540" y="356" font-family="'Segoe UI','Helvetica Neue',Arial,sans-serif" font-size="21" fill="#C9D1D9">Rust, C/C++, Python, TypeScript, Dart, CUDA, ROCm, Vulkan</text><rect class="d1" x="376" y="330" width="860" height="38" fill="#07080B"/><text x="380" y="398" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="15" fill="#5C6370" letter-spacing="3">MODELS</text><text x="540" y="398" font-family="'Segoe UI','Helvetica Neue',Arial,sans-serif" font-size="21" fill="#FCEE0A">17 published on Hugging Face, 2,372 downloads</text><rect class="d2" x="376" y="372" width="860" height="38" fill="#07080B"/><text x="380" y="440" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="15" fill="#5C6370" letter-spacing="3">ALIAS</text><text x="540" y="440" font-family="'Segoe UI','Helvetica Neue',Arial,sans-serif" font-size="21" fill="#C9D1D9">ghost</text><rect class="d3" x="376" y="414" width="860" height="38" fill="#07080B"/><text x="380" y="482" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="15" fill="#5C6370" letter-spacing="3">BASE</text><rect x="540" y="465" width="190" height="22" fill="#C9D1D9"/><text x="744" y="482" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="15" fill="#FF003C" letter-spacing="2">[REDACTED]</text><rect class="d4" x="376" y="456" width="860" height="38" fill="#07080B"/><text x="380" y="524" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="15" fill="#5C6370" letter-spacing="3">STATUS</text><rect class="pulse" x="540" y="511" width="12" height="12" fill="#02D7F2"/><text x="562" y="524" font-family="'Segoe UI','Helvetica Neue',Arial,sans-serif" font-size="21" fill="#02D7F2">Active</text><rect class="d5" x="376" y="498" width="860" height="38" fill="#07080B"/>
+<g class="stamp"><rect x="930" y="110" width="270" height="74" fill="none" stroke="#FF003C" stroke-width="5"/>
+<text x="1065" y="160" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="34" font-weight="700" fill="#FF003C" text-anchor="middle" letter-spacing="5">CLASSIFIED</text></g>
+<polygon points="52,566 1228,566 1228,616 1200,640 52,640" fill="#0E1015" stroke="#FCEE0A" stroke-opacity="0.35"/>
+<text x="70" y="594" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="14" fill="#FCEE0A" letter-spacing="3">SUMMARY</text>
+<text x="190" y="595" font-family="'Segoe UI','Helvetica Neue',Arial,sans-serif" font-size="20" fill="#C9D1D9">Builds AI software that runs on your own hardware: desktop assistants, mobile apps,</text>
+<text x="190" y="624" font-family="'Segoe UI','Helvetica Neue',Arial,sans-serif" font-size="20" fill="#C9D1D9">and the inference engines and GPU kernels underneath them.</text>
+<rect x="1090" y="646" width="60" height="6" fill="#FCEE0A"/><rect x="1160" y="646" width="60" height="6" fill="#FF003C"/>
+<rect width="1280" height="660" fill="url(#scan)"/>
+</svg>

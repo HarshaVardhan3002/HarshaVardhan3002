@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="330" viewBox="0 0 1280 330">
+<defs><pattern id="scan" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="4" height="1" fill="#fff" opacity="0.03"/></pattern>
+<linearGradient id="glow" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#FCEE0A" stop-opacity="0.10"/><stop offset="1" stop-color="#FCEE0A" stop-opacity="0"/></linearGradient>
+<style>@keyframes blink{50%{opacity:0}} .blink{animation:blink 1.2s infinite steps(1)}</style></defs>
+<polygon points="1,1 1250,1 1279,30 1279,329 30,329 1,300" fill="#0E1015" stroke="#FCEE0A" stroke-width="3"/>
+<rect x="2" y="44" width="420" height="256" fill="url(#glow)"/>
+<polygon points="1,1 860,1 836,40 1,40" fill="#FCEE0A"/>
+<text x="20" y="28" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="19" font-weight="700" fill="#07080B" letter-spacing="2">SECOND PORTFOLIO // HUGGING FACE</text>
+<rect class="blink" x="1220" y="16" width="12" height="12" fill="#FF003C"/>
+<text x="1210" y="28" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="14" fill="#5C6370" text-anchor="end">huggingface.co/Harsha001</text>
+<text x="30" y="150" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="84" font-weight="700" fill="#FCEE0A">2,372</text>
+<text x="34" y="180" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="15" fill="#5C6370" letter-spacing="3">TOTAL DOWNLOADS</text>
+<text x="30" y="262" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="54" font-weight="700" fill="#02D7F2">17</text>
+<text x="34" y="290" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="15" fill="#5C6370" letter-spacing="3">MODELS PUBLISHED</text>
+<line x1="440" y1="70" x2="440" y2="300" stroke="#FCEE0A" stroke-opacity="0.3"/>
+<text x="470" y="112" font-family="'Segoe UI','Helvetica Neue',Arial,sans-serif" font-size="20" fill="#C9D1D9">Open models I quantized to run fast on AMD GPUs and Strix Halo:</text><text x="470" y="142" font-family="'Segoe UI','Helvetica Neue',Arial,sans-serif" font-size="20" fill="#C9D1D9">language, image and video models, each file scored against the original.</text><text x="470" y="172" font-family="'Segoe UI','Helvetica Neue',Arial,sans-serif" font-size="20" fill="#C9D1D9">Plus speech models ported to the AMD XDNA2 NPU.</text>
+<text x="470" y="222" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="14" fill="#02D7F2" letter-spacing="3">MOST DOWNLOADED</text>
+<text x="470" y="250" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="16" fill="#C9D1D9">MiniCPM-V-4.7-35B-A3B-ROCmFPX</text><text x="1240" y="250" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="16" fill="#FCEE0A" text-anchor="end">624 &#8595;</text><text x="470" y="276" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="16" fill="#C9D1D9">Drama-3-ROCmFPX-GGUF</text><text x="1240" y="276" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="16" fill="#FCEE0A" text-anchor="end">309 &#8595;</text><text x="470" y="302" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="16" fill="#C9D1D9">Sage-A1.5-ROCmFPX</text><text x="1240" y="302" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="16" fill="#FCEE0A" text-anchor="end">245 &#8595;</text>
+<rect width="1280" height="330" fill="url(#scan)"/>
+</svg>

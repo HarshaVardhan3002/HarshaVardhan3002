@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="64" viewBox="0 0 1280 64">
 <polygon points="0,8 470,8 446,56 0,56" fill="#FCEE0A"/>
-<text x="22" y="42" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="26" font-weight="700" fill="#07080B">03 // TELEMETRY</text>
+<text x="22" y="42" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="26" font-weight="700" fill="#07080B">FILE 03 // SKILLS</text>
 <line x1="470" y1="54" x2="1280" y2="54" stroke="#FCEE0A" stroke-width="2"/>
 <rect x="1190" y="40" width="90" height="8" fill="#FF003C"/>
-<text x="1180" y="44" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="13" fill="#5C6370" text-anchor="end">SECTOR 03</text>
+<text x="1180" y="44" font-family="'Courier New',Consolas,'DejaVu Sans Mono',monospace" font-size="13" fill="#5C6370" text-anchor="end">ARASAKA // REC 0x3002</text>
 </svg>
