@@ -28,7 +28,7 @@
 <img src="assets/section-03.svg" width="100%" alt="File 03: Skills">
 
 <p align="center">
-<img src="https://skillicons.dev/icons?i=rust,cpp,c,py,ts,js,svelte,tauri,dart,flutter,kotlin,react,nodejs,pytorch,docker,linux,git,githubactions&perline=9&theme=dark" alt="Rust, C++, C, Python, TypeScript, JavaScript, Svelte, Tauri, Dart, Flutter, Kotlin, React, Node.js, PyTorch, Docker, Linux, Git, GitHub Actions">
+<img src="assets/skills.svg" width="100%" alt="Skills: Rust, C, C++, Python, TypeScript, JavaScript, Dart, Kotlin; PyTorch, llama.cpp, CUDA, ROCm, Vulkan, ONNX, AMD NPU; Tauri, Svelte, React, Flutter, Node.js; Linux, Docker, Git, GitHub Actions">
 </p>
 
 <img src="assets/section-04.svg" width="100%" alt="File 04: Activity">

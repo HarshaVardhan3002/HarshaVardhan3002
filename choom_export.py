@@ -1,54 +1,16 @@
 """Write Claude Code usage totals to choom.json (totals only, no session data); the workflow draws assets/choom.svg.
-Base numbers come from ~/.claude/stats-cache.json. Days after the cache's last date are counted from the session
-logs in ~/.claude/projects. With --push, the file is uploaded to the profile repo via the gh CLI instead."""
+Numbers come only from ~/.claude/stats-cache.json, which Claude Code refreshes itself (counting the raw session
+logs gives different totals). With --push, the file is uploaded to the profile repo via the gh CLI instead."""
 import base64
-import glob
 import json
 import os
 import subprocess
 import sys
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 
 REPO = "HarshaVardhan3002/HarshaVardhan3002"
 HOME = os.path.expanduser("~/.claude")
 GH = os.environ.get("GH_EXE", "gh")
-
-
-def recent(after):
-    """Totals from the session logs for days after `after` (YYYY-MM-DD)."""
-    cutoff = datetime.fromisoformat(after).timestamp() + 86400
-    days, hours, sessions, seen = {}, {}, {}, set()
-    tools = tokens = 0
-    for path in glob.glob(os.path.join(HOME, "projects", "**", "*.jsonl"), recursive=True):
-        if os.path.getmtime(path) < cutoff:
-            continue
-        with open(path, encoding="utf-8", errors="replace") as f:
-            for line in f:
-                if '"type":"user"' not in line and '"type":"assistant"' not in line:
-                    continue
-                try:
-                    d = json.loads(line)
-                except ValueError:
-                    continue
-                ts = d.get("timestamp", "")
-                if d.get("type") not in ("user", "assistant") or ts[:10] <= after:
-                    continue
-                days[ts[:10]] = days.get(ts[:10], 0) + 1
-                sid = d.get("sessionId")
-                if sid and (sid not in sessions or ts < sessions[sid]):
-                    sessions[sid] = ts
-                m = d.get("message") or {}
-                if d["type"] == "assistant" and isinstance(m.get("content"), list):
-                    tools += sum(1 for b in m["content"] if isinstance(b, dict) and b.get("type") == "tool_use")
-                    u = m.get("usage") or {}
-                    if m.get("id") and m["id"] not in seen:
-                        seen.add(m["id"])
-                        tokens += sum(u.get(k) or 0 for k in ("input_tokens", "output_tokens",
-                                                              "cache_read_input_tokens", "cache_creation_input_tokens"))
-    for ts in sessions.values():
-        h = datetime.fromisoformat(ts.replace("Z", "+00:00")).astimezone().hour
-        hours[h] = hours.get(h, 0) + 1
-    return days, hours, len(sessions), tools, tokens
 
 
 def build():
@@ -56,21 +18,16 @@ def build():
     last = d["lastComputedDate"]
     days = {x["date"]: x["messageCount"] for x in d["dailyActivity"] if x["date"] <= last}
     hours = {int(h): n for h, n in d["hourCounts"].items()}
-    new_days, new_hours, n_sessions, n_tools, n_tokens = recent(last)
-    for k, v in new_days.items():
-        days[k] = days.get(k, 0) + v
-    for k, v in new_hours.items():
-        hours[k] = hours.get(k, 0) + v
     start, end = date.fromisoformat(min(days)), date.fromisoformat(max(days))
     usage = d["modelUsage"].values()
     return {
         "since": min(days),
         "updated": max(days),
         "days_active": sum(1 for n in days.values() if n),
-        "sessions": d["totalSessions"] + n_sessions,
-        "messages": d["totalMessages"] + sum(new_days.values()),
-        "tool_calls": sum(x["toolCallCount"] for x in d["dailyActivity"] if x["date"] <= last) + n_tools,
-        "tokens": n_tokens + sum(v[k] for v in usage for k in ("inputTokens", "outputTokens",
+        "sessions": d["totalSessions"],
+        "messages": d["totalMessages"],
+        "tool_calls": sum(x["toolCallCount"] for x in d["dailyActivity"] if x["date"] <= last),
+        "tokens": sum(v[k] for v in usage for k in ("inputTokens", "outputTokens",
                                                                "cacheReadInputTokens", "cacheCreationInputTokens")),
         "peak_hour": max(hours, key=hours.get),
         "daily": [days.get((start + timedelta(i)).isoformat(), 0) for i in range((end - start).days + 1)],
