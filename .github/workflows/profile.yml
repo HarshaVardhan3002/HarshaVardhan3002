@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: [build.py, choom.json, "fonts/**"]
+    paths: [build.py, choom.json, icons.json, "fonts/**"]
 permissions:
   contents: write
 jobs:

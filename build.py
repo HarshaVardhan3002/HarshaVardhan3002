@@ -1,5 +1,8 @@
 """Build the profile SVGs in assets/. Run daily by the workflow (live numbers from the GitHub and Hugging Face APIs).
-Look: Cyberpunk 2077 HUD. Thin lines, one red accent, fonts embedded per image (subset to the letters it uses)."""
+Story: a clean portfolio loads, then gets corrupted into a leaked NetWatch bounty file (Cyberpunk 2077 yellow).
+Further down, Claude vouches for Von until a rogue copy of Claude hijacks the panel for a few seconds.
+Fonts are embedded per image (subset to the letters it uses). Logos come from icons.json (Simple Icons, CC0).
+Set PROFILE_CACHE=<file> to reuse fetched data between local runs."""
 import base64
 import html
 import io
@@ -12,16 +15,19 @@ from datetime import datetime, timezone
 from xml.sax.saxutils import escape
 
 from fontTools import subset
+from fontTools.pens.boundsPen import BoundsPen
+from fontTools.svgLib.path import parse_path
 from fontTools.ttLib import TTFont
 
 GH_USER = "HarshaVardhan3002"
 HF_USER = "Harsha001"
 W = 1280
-TOP_FLOOR = 100
 
-BG, PANEL, LINE, LINE2 = "#06080C", "#0A0E14", "#1B212B", "#2A323E"
-TXT, SOFT, DIM = "#E4E9F0", "#AEB7C4", "#6E7787"
-RED, CYAN, YEL, PINK = "#FF3C4E", "#3EE8F0", "#F3E600", "#FF2D8A"
+Y, INK, PANEL, TILE = "#FCEE0A", "#0A0A0C", "#111115", "#18181E"
+LINE, LINE2 = "#25252D", "#363641"
+TXT, SOFT, DIM = "#F2F2EE", "#B3B3BD", "#777782"
+RED, CYAN, CLAUDE = "#FF003C", "#00F0FF", "#D97757"
+TRAIL = ["#FF2E97", "#B44DFF", "#3D7BFF", "#00F0FF", "#39FF88"]  # Sandevistan after-images, far to near
 
 # family name used in the SVG -> font file (OFL fonts, see fonts/)
 FONTS = {"RajB": "fonts/Rajdhani-Bold.ttf", "RajM": "fonts/Rajdhani-Medium.ttf",
@@ -31,14 +37,17 @@ BODY = "font-family=\"RajM,'Rajdhani',sans-serif\" font-weight=\"500\""
 NUM = "font-family=\"Chakra,'Chakra Petch',sans-serif\" font-weight=\"600\""
 MONO = "font-family=\"Mono,'JetBrains Mono',Consolas,monospace\""
 FAMILY = {DISP: "RajB", BODY: "RajM", NUM: "Chakra", MONO: "Mono"}
+# the "normal portfolio" before the leak uses the visitor's own system font on purpose
+SYS = "font-family=\"system-ui,-apple-system,'Segoe UI','Helvetica Neue',Arial,sans-serif\""
 
-# repos that are mostly upstream code, left out of the language stats
-UPSTREAM_FORKS = {"ROCmFPX"}
-SKIP_LANGS = {"HTML", "CSS", "SCSS", "Jupyter Notebook", "Shell", "PowerShell", "Batchfile", "Makefile", "CMake", "Dockerfile"}
-LANG_COLORS = {"Svelte": "#FF3E00", "Kotlin": "#A97BFF", "Cuda": "#5A8F5A", "GLSL": "#5686A5", "Metal": "#8F14E9",
-               "Objective-C": "#438EFF", "Swift": "#F05138", "Go": "#00ADD8", "Java": "#B07219", "Rust": "#DEA584",
-               "C": "#A8B9CC", "C++": "#F34B7D", "Python": "#3572A5", "TypeScript": "#3178C6",
-               "JavaScript": "#F1E05A", "Dart": "#00B4AB"}
+ICONS = json.load(open("icons.json", encoding="utf-8"))
+
+# repos that are mostly upstream or vendored code, left out of the language stats
+VENDORED = {"ROCmFPX", "Intrinsic_Model_harness"}
+SKIP_LANGS = {"HTML", "CSS", "SCSS", "Jupyter Notebook", "Shell", "PowerShell", "Batchfile", "Makefile", "CMake",
+              "Dockerfile", "TeX", "NSIS", "Nix"}
+LANG_ICON = {"Rust": "rust", "C": "c", "C++": "cplusplus", "Python": "python", "TypeScript": "typescript",
+             "JavaScript": "javascript", "Dart": "dart", "Kotlin": "kotlin", "Svelte": "svelte", "Cuda": "nvidia"}
 
 # name shown, repo (or url), tag, description lines, language
 PROJECTS = [
@@ -60,15 +69,21 @@ PROJECTS = [
      ["llama.cpp fork with low-bit weight types", "for AMD GPUs (Vulkan and HIP)."], "C++"),
 ]
 
-SKILLS = [("LANGUAGES", ["Rust", "C", "C++", "Python", "TypeScript", "JavaScript", "Dart", "Kotlin"]),
-          ("AI / GPU", ["PyTorch", "llama.cpp / GGML", "CUDA", "ROCm / HIP", "Vulkan", "ONNX", "AMD XDNA2 NPU"]),
-          ("APPS", ["Tauri", "Svelte", "React", "Flutter", "Node.js"]),
-          ("INFRA", ["Linux", "Docker", "Git", "GitHub Actions", "Hugging Face Hub"])]
+# language, logo, where it shows up
+LANGUAGES = [("Rust", "rust", "Nimbus, Namma Office"), ("C", "c", "zunzun engine"),
+             ("C++", "cplusplus", "ROCmFPX kernels"), ("Python", "python", "ML, SCIONfit, HCR-EV"),
+             ("TypeScript", "typescript", "Daimon, circuit editor"), ("JavaScript", "javascript", "Nimbus HUD"),
+             ("Dart", "dart", "Flutter apps"), ("Kotlin", "kotlin", "Android, Daimon")]
+STACK = [("AI / GPU", [("PyTorch", "pytorch"), ("llama.cpp / GGML", None), ("CUDA", "nvidia"), ("ROCm / HIP", "amd"),
+                       ("", "vulkan"), ("ONNX", "onnx"), ("XDNA2 NPU", "amd")]),
+         ("APPS", [("Tauri", "tauri"), ("Svelte", "svelte"), ("React", "react"), ("Flutter", "flutter"),
+                   ("Node.js", "nodedotjs")]),
+         ("INFRA", [("Linux", "linux"), ("Docker", "docker"), ("Git", "git"), ("GitHub Actions", "githubactions"),
+                    ("Hugging Face Hub", "huggingface")])]
 
-# README sections are floors of the tower; the page climbs as you scroll
-SECTIONS = [("01", "PROJECTS", "FL.012 // R&D LABS"), ("02", "HUGGING FACE", "FL.047 // MODEL VAULT"),
-            ("03", "SKILLS", "FL.063 // CYBERWARE"), ("04", "ACTIVITY", "FL.088 // NETWATCH"),
-            ("05", "CHOOM", "FL.099 // NEURAL LINK")]
+SECTIONS = [("01", "PROJECTS", "THINGS VON HAS BUILT"), ("02", "SKILLS", "LANGUAGES AND TOOLS"),
+            ("03", "HUGGING FACE", "SECOND PORTFOLIO: OPEN MODELS"), ("04", "GITHUB", "LIVE ACTIVITY"),
+            ("05", "CLAUDE", "MY CHOOM AND PAIR PROGRAMMER")]
 
 _fonts = {}
 
@@ -86,11 +101,17 @@ def width(text, style, size, ls=0):
     return adv * size / upm + ls * len(text)
 
 
-def wrap(text, style, size, maxw):
+def fit(text, style, maxw, size, ls=0):
+    while size > 10 and width(text, style, size, ls) > maxw:
+        size -= 1
+    return size
+
+
+def wrap(text, style, size, maxw, ls=0):
     lines, cur = [], ""
     for word in text.split():
         nxt = f"{cur} {word}".strip()
-        if cur and width(nxt, style, size) > maxw:
+        if cur and width(nxt, style, size, ls) > maxw:
             lines.append(cur)
             cur = word
         else:
@@ -102,6 +123,30 @@ def t(x, y, s, style, size, fill, ls=0, anchor=None, extra=""):
     a = f' text-anchor="{anchor}"' if anchor else ""
     sp = f' letter-spacing="{ls}"' if ls else ""
     return f'<text x="{x:.1f}" y="{y:.1f}" {style} font-size="{size}" fill="{fill}"{sp}{a}{extra}>{escape(s)}</text>'
+
+
+def icon(name, x, y, size, fill, extra=""):
+    if not name:  # generic chip glyph for tools without a logo
+        s, k = size, size / 24
+        pins = "".join(f"M{x + p * k:.1f} {y + 1 * k:.1f}V{y + 4 * k:.1f}M{x + p * k:.1f} {y + 20 * k:.1f}V{y + 23 * k:.1f}"
+                       f"M{x + 1 * k:.1f} {y + p * k:.1f}H{x + 4 * k:.1f}M{x + 20 * k:.1f} {y + p * k:.1f}H{x + 23 * k:.1f}"
+                       for p in (8, 12, 16))
+        return (f'<g{extra}><rect x="{x + 4.5 * k:.1f}" y="{y + 4.5 * k:.1f}" width="{15 * k:.1f}" height="{15 * k:.1f}" fill="none" '
+                f'stroke="{fill}" stroke-width="{2 * k:.1f}"/><path d="{pins}" stroke="{fill}" stroke-width="{1.6 * k:.1f}"/>'
+                f'<rect x="{x + 9 * k:.1f}" y="{y + 9 * k:.1f}" width="{6 * k:.1f}" height="{6 * k:.1f}" fill="{fill}"/></g>')
+    return f'<path transform="translate({x:.1f} {y:.1f}) scale({size / 24:.4f})" d="{ICONS[name]}" fill="{fill}"{extra}/>'
+
+
+def logo(name, x, cy, h, maxw, fill):
+    """Icon scaled by its real outline: at most h tall and maxw wide, centred on cy. Returns (svg, width)."""
+    if not name:
+        return icon(None, x, cy - h / 2, h, fill), h
+    pen = BoundsPen(None)
+    parse_path(ICONS[name], pen)
+    x0, y0, x1, y1 = pen.bounds
+    k = min(h / (y1 - y0), maxw / (x1 - x0))
+    return (f'<path transform="translate({x - x0 * k:.1f} {cy - (y0 + y1) / 2 * k:.1f}) scale({k:.4f})" '
+            f'd="{ICONS[name]}" fill="{fill}"/>', (x1 - x0) * k)
 
 
 def get(url, token=None):
@@ -139,351 +184,510 @@ def save(path, svg):
 
 
 def doc(w, h, body, css="", defs=""):
+    # resting state = the look without animation, so reduced-motion viewers get the finished file
     return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}">
 <defs>
-<pattern id="scan" width="3" height="3" patternUnits="userSpaceOnUse"><rect width="3" height="1" fill="#fff" opacity="0.018"/></pattern>
 {defs}
 <style>
-@keyframes blink{{50%{{opacity:0}}}} @keyframes pulse{{0%,100%{{opacity:.35}}50%{{opacity:1}}}}
-.blink{{animation:blink 1.1s infinite steps(1)}} .pulse{{animation:pulse 2s infinite ease-in-out}}
+@keyframes blink{{50%{{opacity:0}}}} @keyframes on{{from{{opacity:0}}to{{opacity:1}}}} @keyframes off{{from{{opacity:1}}to{{opacity:0}}}}
+@keyframes pulse{{0%,100%{{opacity:.35}}50%{{opacity:1}}}}
+.blink{{animation:blink 1.1s infinite steps(1)}} .pulse{{animation:pulse 1.8s infinite ease-in-out}}
 {css}
+@media (prefers-reduced-motion:reduce){{*{{animation:none!important}}}}
 </style>
 </defs>
 {body}
-<rect width="{w}" height="{h}" fill="url(#scan)"/>
 </svg>"""
 
 
-def frame(w, h, cut=16, x=0, y=0):
-    # 1px outline, top-right and bottom-left corners cut
-    return (f'<path d="M{x + .5} {y + .5}H{x + w - cut}L{x + w - .5} {y + cut}V{y + h - .5}H{x + cut}'
-            f'L{x + .5} {y + h - cut}Z" fill="{PANEL}" stroke="{LINE2}"/>')
+def cutbox(x, y, w, h, c, fill, stroke=None):
+    # box with the top-right corner cut off
+    st = f' stroke="{stroke}"' if stroke else ""
+    return f'<path d="M{x} {y}H{x + w - c}L{x + w} {y + c}V{y + h}H{x}Z" fill="{fill}"{st}/>'
 
 
-def ticks(x, y, w, h):
-    # red corner ticks, top-left and bottom-right
-    return (f'<path d="M{x} {y + 18}V{y}H{x + 18}M{x + w} {y + h - 18}V{y + h}H{x + w - 18}" fill="none" stroke="{RED}" stroke-width="2"/>')
+def tab(x, y, text, style, size, fg, bg, ls=2, pad=12, h=28):
+    # filled label with an arrow-cut right end; returns (svg, right edge)
+    tw = width(text, style, size, ls)
+    r = x + pad + tw + pad
+    return (f'<path d="M{x} {y}H{r:.0f}L{r + 10:.0f} {y + h / 2:.0f}L{r:.0f} {y + h}H{x}Z" fill="{bg}"/>'
+            + t(x + pad, y + h / 2 + size * 0.36, text, style, size, fg, ls)), r + 10
 
 
-def ruler(x, y, n=24):
-    return "".join(f'<rect x="{x + i * 10}" y="{y - (8 if i % 5 == 0 else 4)}" width="1" height="{8 if i % 5 == 0 else 4}" fill="{LINE2}"/>'
-                   for i in range(n))
-
-
-def header(w, left, right, dot=RED):
-    return (f'<rect x="24" y="22" width="7" height="7" fill="{RED}"/>'
-            + t(40, 30, left, MONO, 14, RED, 2)
-            + f'<rect class="blink" x="{w - 36}" y="22" width="7" height="7" fill="{dot}"/>'
-            + t(w - 46, 30, right, MONO, 14, DIM, 2, "end")
-            + f'<line x1="24" y1="44" x2="{w - 24}" y2="44" stroke="{LINE}"/>')
-
-
-def panel(w, h, left, right, body, css="", defs="", dot=RED):
-    return doc(w, h, frame(w, h) + ticks(1, 1, w - 2, h - 2) + header(w, left, right, dot) + ruler(24, h - 14) + body, css, defs)
-
-
-def tower(x0, y0, vw, vh, floor):
-    # Viewport: a rainy night skyline with a tall corporate tower and the climber's floor marker
-    rnd = random.Random(3002)
-    cx, base, crown = x0 + vw * 0.52, y0 + vh, y0 + 92
-    out = [f'<rect x="{x0}" y="{y0}" width="{vw}" height="{vh}" fill="url(#sky)"/>',
-           f'<ellipse cx="{cx}" cy="{crown + 30}" rx="190" ry="150" fill="url(#pinkglow)"/>']
-    for layer, (col, hmin, hmax, win) in enumerate([("#11152A", 140, 320, 0.3), ("#080B13", 50, 170, 0.6)]):
-        x = x0 - 10
-        while x < x0 + vw:
-            bw = rnd.randint(26, 58)
-            bh = rnd.randint(hmin, hmax)
-            if abs(x + bw / 2 - cx) > 70 or layer == 0:
-                out.append(f'<rect x="{x}" y="{base - bh}" width="{bw}" height="{bh}" fill="{col}"/>')
-                out.append(f'<line x1="{x}" y1="{base - bh + .5}" x2="{x + bw}" y2="{base - bh + .5}" stroke="{PINK if layer == 0 else CYAN}" stroke-opacity="0.18"/>')
-                for wy in range(base - bh + 8, base - 6, 9):
-                    for wx in range(x + 5, x + bw - 5, 7):
-                        if rnd.random() < 0.07 * win:
-                            c = rnd.choice([PINK, CYAN, YEL, "#8FA3C0"])
-                            cls = ' class="pulse"' if rnd.random() < 0.15 else ""
-                            out.append(f'<rect{cls} x="{wx}" y="{wy}" width="2" height="3" fill="{c}" opacity="{rnd.uniform(.35, .85):.2f}"/>')
-            x += bw + rnd.randint(2, 8)
-    # the tower: slim shaft, wider head block, antenna
-    sw, hw = 44, 64
-    out.append(f'<path d="M{cx - sw} {base}V{crown + 70}L{cx - hw} {crown + 52}V{crown}H{cx + hw}V{crown + 52}L{cx + sw} {crown + 70}V{base}Z" '
-               f'fill="#0B0F18" stroke="#3A2030"/>')
-    for fy in range(int(crown + 80), base, 10):
-        out.append(f'<line x1="{cx - sw + 4}" y1="{fy}" x2="{cx + sw - 4}" y2="{fy}" stroke="#151B27"/>')
-    for fy in range(int(crown + 84), base - 4, 10):
-        for fx in range(int(cx - sw + 6), int(cx + sw - 6), 6):
-            if rnd.random() < 0.05:
-                out.append(f'<rect x="{fx}" y="{fy}" width="3" height="4" fill="{rnd.choice([SOFT, CYAN, PINK])}" opacity="{rnd.uniform(.2, .55):.2f}"/>')
-    # neon rim light: pink on the left edges, cyan on the right
-    out.append(f'<path d="M{cx - sw + .5} {base}V{crown + 70}L{cx - hw + .5} {crown + 52}V{crown + .5}" fill="none" stroke="{PINK}" stroke-opacity="0.55"/>')
-    out.append(f'<path d="M{cx + sw - .5} {base}V{crown + 70}L{cx + hw - .5} {crown + 52}V{crown + .5}" fill="none" stroke="{CYAN}" stroke-opacity="0.35"/>')
-    out.append(f'<rect x="{cx - 1}" y="{crown + 60}" width="2" height="{base - crown - 60}" fill="{RED}" opacity="0.55"/>')
-    out.append(f'<rect x="{cx - hw + 8}" y="{crown + 14}" width="{2 * hw - 16}" height="3" fill="{RED}" opacity="0.8"/>')
-    out.append(f'<rect x="{cx - hw + 8}" y="{crown + 34}" width="{2 * hw - 16}" height="1" fill="{RED}" opacity="0.4"/>')
-    out.append(f'<line x1="{cx}" y1="{crown}" x2="{cx}" y2="{crown - 46}" stroke="#3A2030" stroke-width="2"/>')
-    out.append(f'<circle class="blink" cx="{cx}" cy="{crown - 48}" r="3" fill="{RED}"/>')
-    # floor scale and marker
-    top, bot = crown + 6, base - 20
-    sx = cx + hw + 22
-    out.append(f'<line x1="{sx}" y1="{top}" x2="{sx}" y2="{bot}" stroke="{LINE2}"/>')
-    for f in range(0, TOP_FLOOR + 1, 25):
-        fy = bot - (bot - top) * f / TOP_FLOOR
-        out.append(f'<line x1="{sx}" y1="{fy:.1f}" x2="{sx + 8}" y2="{fy:.1f}" stroke="{LINE2}"/>')
-        out.append(t(sx + 14, fy + 4, f"FL {f:03d}", MONO, 12, DIM))
-    out.append(t(cx + 12, crown - 30, "TARGET: TOP FLOOR", MONO, 12, RED, 2))
-    my = bot - (bot - top) * min(floor, TOP_FLOOR) / TOP_FLOOR
-    out.append(f'<line class="pulse" x1="{cx - sw - 30}" y1="{my:.1f}" x2="{sx}" y2="{my:.1f}" stroke="{CYAN}" stroke-dasharray="3 3"/>')
-    out.append(f'<path d="M{sx - 2} {my:.1f}l10 -6v12z" fill="{CYAN}"/>')
-    out.append(t(cx - sw - 36, my - 8, f"VON  FL {floor:03d}", MONO, 13, CYAN, 1, "end"))
-    out.append(f'<rect x="{x0}" y="{y0}" width="{vw}" height="{vh}" fill="url(#rain)" class="rain"/>')
+def barcode(x, y, w, h, fill, seed):
+    rnd, out, cx = random.Random(seed), [], x
+    while cx < x + w - 4:
+        bw = rnd.choice([1, 1, 2, 3])
+        out.append(f'<rect x="{cx}" y="{y}" width="{bw}" height="{h}" fill="{fill}"/>')
+        cx += bw + rnd.choice([1, 2, 2, 3])
     return "".join(out)
 
 
-def dossier(stamp, n_models, dl, floor):
-    w, h = W, 700
-    vx, vy, vw, vh = 812, 96, 420, 556
-    name_w = width("VON", DISP, 176, 8)
-    rows, css = [], []
-    fields = [("FOCUS", "AI apps, desktop agents, inference engines, local LLMs"),
-              ("STACK", "Rust, C/C++, Python, TypeScript, Dart, CUDA, ROCm, Vulkan"),
-              ("MODELS", f"{n_models} on Hugging Face  /  {dl:,} downloads"),
-              ("BASE", ""),
-              ("STATUS", "Online, shipping")]
-    for k, (label, value) in enumerate(fields):
-        y = 452 + k * 42
-        r = t(56, y, label, MONO, 14, DIM, 2)
-        if label == "BASE":
-            r += f'<rect x="196" y="{y - 15}" width="170" height="18" fill="{LINE2}"/>' + t(380, y, "REDACTED", MONO, 13, RED, 2)
-        elif label == "STATUS":
-            r += f'<circle class="pulse" cx="202" cy="{y - 6}" r="5" fill="{CYAN}"/>' + t(216, y, value, BODY, 23, CYAN)
-        else:
-            r += t(196, y, value, BODY, 23, YEL if label == "MODELS" else TXT)
-        r += f'<line x1="56" y1="{y + 15}" x2="760" y2="{y + 15}" stroke="{LINE}" stroke-dasharray="2 4"/>'
-        rows.append(f'<g class="r{k}">{r}</g>')
-        css.append(f".r{k}{{animation:rin .5s {0.9 + k * 0.18:.2f}s both cubic-bezier(.2,.8,.2,1)}}")
-    summary = wrap("Builds AI software that runs on your own hardware: desktop assistants, mobile apps, "
-                   "and the inference engines and GPU kernels underneath them.", BODY, 23, 700)
-    name = lambda dx, fill, op: f'<text x="{50 + dx}" y="282" {DISP} font-size="176" fill="{fill}" letter-spacing="8" opacity="{op}">VON</text>'
-    body = (
-        f'<rect width="{w}" height="{h}" fill="{BG}"/>'
-        f'<rect width="{w}" height="{h}" fill="url(#grid)"/>'
-        + frame(w - 2, h - 2, 22, 1, 1).replace(f'fill="{PANEL}"', 'fill="none"') + ticks(1, 1, w - 2, h - 2)
-        + f'<rect x="24" y="30" width="7" height="7" fill="{RED}"/>' + t(40, 38, "ARASAKA CORP. // INTERNAL NETWORK // PERSONNEL FILE 0x3002", MONO, 14, RED, 2)
-        + f'<rect class="blink" x="{w - 36}" y="30" width="7" height="7" fill="{RED}"/>' + t(w - 46, 38, "UNAUTHORIZED ACCESS", MONO, 14, RED, 2, "end")
-        + f'<line x1="24" y1="56" x2="{w - 24}" y2="56" stroke="{LINE}"/>'
-        + t(56, 112, f"RETRIEVED {stamp}  //  CLEARANCE: NONE", MONO, 14, DIM, 1)
-        + f'<g class="nm"><g class="gr">{name(-3, RED, .55)}</g><g class="gc">{name(3, CYAN, .45)}</g>{name(0, TXT, 1)}</g>'
-        + f'<rect x="56" y="300" width="{name_w - 8:.0f}" height="2" fill="{RED}"/>'
-        + t(56 + name_w + 10, 306, "SUBJECT", MONO, 13, RED, 3)
-        + t(56, 342, "AI ENGINEER  /  SYSTEMS DEVELOPER  /  APP BUILDER", NUM, 22, CYAN, 3)
-        + "".join(t(56, 384 + i * 28, line, BODY, 23, SOFT) for i, line in enumerate(summary))
-        + "".join(rows)
-        + f'<g clip-path="url(#vp)">{tower(vx, vy, vw, vh, floor)}</g>'
-        + f'<rect x="{vx + .5}" y="{vy + .5}" width="{vw - 1}" height="{vh - 1}" fill="none" stroke="{LINE2}"/>'
-        + f'<path d="M{vx} {vy + 20}V{vy}H{vx + 20}M{vx + vw - 20} {vy}H{vx + vw}V{vy + 20}M{vx + vw} {vy + vh - 20}V{vy + vh}H{vx + vw - 20}M{vx + 20} {vy + vh}H{vx}V{vy + vh - 20}" fill="none" stroke="{CYAN}" stroke-width="2"/>'
-        + t(vx + 14, vy + 26, "CAM 03 // ARASAKA TOWER", MONO, 12, SOFT, 2)
-        + f'<circle class="blink" cx="{vx + vw - 52}" cy="{vy + 22}" r="4" fill="{RED}"/>' + t(vx + vw - 14, vy + 26, "REC", MONO, 12, SOFT, 2, "end")
-        + t(vx, vy + vh + 26, f"ASCENT {floor:03d} / {TOP_FLOOR}  //  1 FLOOR PER REPO OR MODEL SHIPPED", MONO, 12, DIM, 1)
-        + ruler(24, h - 14, 30)
-    )
-    defs = (f'<pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="{CYAN}" stroke-opacity="0.025"/></pattern>'
-            f'<linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1A0B26"/><stop offset=".55" stop-color="#0C0D1A"/><stop offset="1" stop-color="#06080C"/></linearGradient>'
-            f'<radialGradient id="pinkglow"><stop offset="0" stop-color="{PINK}" stop-opacity="0.22"/><stop offset="1" stop-color="{PINK}" stop-opacity="0"/></radialGradient>'
-            f'<pattern id="rain" width="40" height="60" patternUnits="userSpaceOnUse">'
-            f'<path d="M6 0l-3 14M22 26l-3 14M34 8l-3 14M14 44l-3 14" stroke="#9FB4D0" stroke-opacity="0.10"/></pattern>'
-            f'<clipPath id="vp"><rect x="{vx}" y="{vy}" width="{vw}" height="{vh}"/></clipPath>')
-    css.append("@keyframes rin{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:none}}"
-               "@keyframes rain{from{transform:translate(0,0)}to{transform:translate(-10px,60px)}}"
-               ".rain{animation:rain .7s linear infinite}"
-               "@keyframes gr{0%,93%,100%{transform:translate(0,0)}94%{transform:translate(-6px,1px)}96%{transform:translate(4px,-1px)}}"
-               "@keyframes gc{0%,93%,100%{transform:translate(0,0)}94%{transform:translate(6px,-1px)}96%{transform:translate(-4px,1px)}}"
-               ".gr{animation:gr 7s infinite steps(1)} .gc{animation:gc 7s infinite steps(1)}"
-               "@keyframes nm{from{opacity:0}to{opacity:1}} .nm{animation:nm .6s .2s both}")
-    return doc(w, h, body, "\n".join(css), defs)
+def dpanel(w, h, left, right, body, css="", defs="", dot=Y):
+    # dark panel: 1px frame, cut corner, yellow header label
+    rw = width(right, MONO, 14, 2)
+    head = (f'<rect x="40" y="33" width="8" height="8" fill="{Y}"/>' + t(58, 42, left, MONO, 15, Y, 3)
+            + f'<rect class="blink" x="{w - 52 - rw:.0f}" y="34" width="7" height="7" fill="{dot}"/>'
+            + t(w - 40, 42, right, MONO, 14, DIM, 2, "end")
+            + f'<line x1="40" y1="62.5" x2="{w - 40}" y2="62.5" stroke="{LINE}"/>')
+    frame = cutbox(.5, .5, w - 1, h - 1, 26, PANEL, LINE2)
+    corner = f'<path d="M1 {h - 30}V{h - 1}H30" fill="none" stroke="{Y}" stroke-width="2"/>'
+    return doc(w, h, frame + corner + head + body, css, defs)
 
 
-def terminal():
-    p = "von@breach:~$ "
-    lines = [(p, "ssh netrunner@arasaka.net"), ("", "> ICE detected. Bypassing... done."),
-             (p, 'query personnel --name "Von"'), ("", "> 1 record found. Decrypting..."),
-             (p, "open ./record_0x3002"), ("", "> Access granted. Loading file below.")]
-    w, fs, lh, x0 = W, 19, 32, 32
-    cw = width("M", MONO, fs)
-    h = 84 + lh * len(lines) + 30
-    tm, out, css = 0.4, [], []
-    # each line is drawn in full, then hidden by panel-coloured covers that slide right one character per step
-    for i, (prompt, cmd) in enumerate(lines):
-        y = 86 + i * lh
-        pw = len(prompt) * cw
-        n = len(cmd)
-        dur = 0.045 * n if prompt else 0.012 * n
-        if prompt:
-            out.append(f'<text x="{x0}" y="{y}" {MONO} font-size="{fs}" xml:space="preserve"><tspan fill="{RED}">{escape(prompt)}</tspan>'
-                       f'<tspan fill="{TXT}">{escape(cmd)}</tspan></text>')
-            out.append(f'<rect class="p{i}" x="{x0 - 2}" y="{y - 22}" width="{pw + 2:.1f}" height="{lh}" fill="{PANEL}"/>')
-            css.append(f".p{i}{{animation:hide .01s {tm:.2f}s both}}")
-        else:
-            out.append(f'<text x="{x0}" y="{y}" {MONO} font-size="{fs}" fill="{CYAN}" opacity="0.85" xml:space="preserve">{escape(cmd)}</text>')
-        out.append(f'<rect class="c{i}" x="{x0 + pw:.1f}" y="{y - 22}" width="{w - 40 - x0 - pw:.1f}" height="{lh}" fill="{PANEL}"/>')
-        css.append(f"@keyframes t{i}{{from{{transform:translateX(0)}}to{{transform:translateX({n * cw + 4:.1f}px)}}}}"
-                   f".c{i}{{animation:t{i} {dur:.2f}s steps({n}) {tm + (0.3 if prompt else 0):.2f}s both}}")
-        tm += dur + (0.6 if prompt else 0.7)
-    yc = 86 + len(lines) * lh
-    css.append(f"@keyframes hide{{from{{opacity:1}}to{{opacity:0}}}} @keyframes show{{from{{opacity:0}}to{{opacity:1}}}}"
-               f".last{{animation:show .01s {tm:.2f}s both}}")
-    body = ("".join(out) + f'<g class="last">' + t(x0, yc, p, MONO, fs, RED, extra=' xml:space="preserve"')
-            + f'<rect class="blink" x="{x0 + len(p) * cw:.1f}" y="{yc - 17}" width="{cw:.1f}" height="20" fill="{RED}"/></g>')
-    return panel(w, h, "NETRUNNER // BREACH LOG", "TUNNEL: ARASAKA.NET", body, "\n".join(css))
+# ---------------------------------------------------------------- hero
 
 
-def section(num, title, floor, w=W, h=84):
-    tw = width(title, DISP, 38, 5)
+def silhouette(cx, top):
+    # head and shoulders, drawn only as an outline for the scanline fill
+    hy = top + 104
+    return (f"M{cx} {hy - 76}C{cx + 44} {hy - 76} {cx + 62} {hy - 42} {cx + 60} {hy - 2}"
+            f"C{cx + 58} {hy + 40} {cx + 38} {hy + 72} {cx + 20} {hy + 80}V{hy + 96}"
+            f"C{cx + 70} {hy + 104} {cx + 136} {hy + 120} {cx + 150} {hy + 196}H{cx - 150}"
+            f"C{cx - 136} {hy + 120} {cx - 70} {hy + 104} {cx - 20} {hy + 96}V{hy + 80}"
+            f"C{cx - 38} {hy + 72} {cx - 58} {hy + 40} {cx - 60} {hy - 2}C{cx - 62} {hy - 42} {cx - 44} {hy - 76} {cx} {hy - 76}Z")
+
+
+def id_cuts(by=96, bh=292):
+    # horizontal slices of the ID scan; some are pushed sideways so the face never lines up
+    rnd, cuts, y = random.Random(77), [], by
+    while y < by + bh:
+        yb = min(by + bh, y + rnd.randint(10, 34))
+        cuts.append((y, yb, rnd.choice([0, 0, 0, rnd.randint(-46, 46)])))
+        y = yb
+    return cuts
+
+
+def leak_layer(d, w, h):
+    """The leaked NetWatch bounty file: what the page turns into."""
+    o = [f'<rect width="{w}" height="{h}" fill="{Y}"/>',
+         f'<rect x="{w - 560}" y="52" width="560" height="460" fill="url(#dots)"/>']
+    # top bar
+    o.append(f'<path d="M0 0H{w}V52H780L764 68H0Z" fill="{INK}"/>')
+    o.append(t(40, 38, "NETWATCH  //  BOUNTY DATABASE  //  FILE V-3002", MONO, 17, Y, 2))
+    note = "LEAKED COPY  ·  YOU ARE NOT CLEARED TO VIEW THIS"
+    o.append(f'<rect class="blink" x="{w - 58 - width(note, MONO, 15, 2):.0f}" y="25" width="9" height="9" fill="{RED}"/>')
+    o.append(t(w - 40, 35, note, MONO, 15, Y, 2, "end"))
+    # side label and registration marks
+    o.append(f'<text transform="translate(27 {h / 2 + 40}) rotate(-90)" {MONO} font-size="12" fill="{INK}" opacity=".55" '
+             f'letter-spacing="4" text-anchor="middle">FILE V-3002  ·  CLASS: NETRUNNER  ·  DO NOT DISTRIBUTE</text>')
+    for (mx, my) in [(20, 96), (w - 20, 96), (20, h - 96), (w - 20, h - 96)]:
+        o.append(f'<path d="M{mx - 7} {my}H{mx + 7}M{mx} {my - 7}V{my + 7}" stroke="{INK}" stroke-opacity=".5"/>')
+
+    # left column: name, class, plain summary, what Von is wanted for
+    o.append(t(56, 118, "SUBJECT", MONO, 16, INK, 4))
+    o.append(f'<rect x="152" y="111" width="440" height="2" fill="{INK}"/>')
+    o.append(t(740, 118, "ALIAS ONLY", MONO, 14, INK, 3, "end"))
+    size, nx, ny = 290, 44, 336
+    cap = 0.643 * size
+    name = lambda fill: f'<text x="{nx}" y="{ny}" {DISP} font-size="{size}" letter-spacing="6" fill="{fill}">VON</text>'
+    for k, col in enumerate(TRAIL):
+        o.append(f'<g class="sv{k}">{name(col)}</g>')
+    o.append(f'<g clip-path="url(#vA)">{name(INK)}</g>'
+             f'<g clip-path="url(#vB)"><g transform="translate(20 0)">{name(RED)}</g></g>'
+             f'<g clip-path="url(#vC)">{name(INK)}</g>')
+    tg, r = tab(56, 364, "NETRUNNER", DISP, 30, Y, INK, 6, 16, 44)
+    o.append(tg)
+    o.append(t(56, 450, "AI ENGINEER  ·  SYSTEMS DEVELOPER  ·  APP BUILDER", NUM, 20, INK, 2))
+    for i, line in enumerate(wrap("I build AI apps for desktop and phone, an engine that runs huge models on everyday "
+                                  "machines, and GPU kernels for AMD.", BODY, 25, 690)):
+        o.append(t(56, 494 + i * 30, line, BODY, 25, INK))
+    tg, r = tab(56, 560, "WANTED FOR", MONO, 15, Y, INK, 3, 12, 28)
+    o.append(tg + f'<rect x="{r + 14:.0f}" y="573" width="{740 - r - 14:.0f}" height="1" fill="{INK}" opacity=".35"/>')
+    wanted = ["Building AI apps for desktop and mobile", "Running giant AI models on everyday machines",
+              "Writing GPU kernels for AMD hardware", f"Publishing {d['n_models']} open models on Hugging Face"]
+    for k, item in enumerate(wanted):
+        y = 622 + k * 36
+        o.append(t(56, y, f"{k + 1:02d}", MONO, 15, INK, 1, extra=' opacity=".6"') + t(96, y, item, BODY, 25, INK))
+
+    # right column: scrubbed ID scan, bounty, status rows
+    bx, by, bw, bh = 792, 96, 432, 292
+    o.append(cutbox(bx, by, bw, bh, 22, INK))
+    cx = bx + bw / 2
+    sil = silhouette(cx, by)
+    o.append(f'<g clip-path="url(#idbox)">')
+    for k, (ya, yb, dx) in enumerate(id_cuts(by, bh)):
+        o.append(f'<g clip-path="url(#sc{k})"><path d="{sil}" transform="translate({dx} 0)" fill="url(#lines)"/></g>')
+    o.append(f'<rect class="scanl" x="{bx}" y="{by - 46}" width="{bw}" height="46" fill="url(#scang)"/></g>')
+    o.append(f'<rect x="{cx - 92}" y="{by + 92}" width="184" height="30" fill="{Y}"/>'
+             + t(cx, by + 113, "SCRUBBED", MONO, 16, INK, 6, "middle"))
+    o.append(f'<path d="M{bx + 10} {by + 40}V{by + 10}H{bx + 40}M{bx + bw - 10} {by + bh - 40}V{by + bh - 10}H{bx + bw - 40}" '
+             f'fill="none" stroke="{Y}" stroke-width="2"/>')
+    o.append(t(bx + 22, by + 34, "ID SCAN", MONO, 14, Y, 3) + t(bx + bw - 30, by + 34, "NO FACE MATCH", MONO, 14, RED, 2, "end"))
+    lab = "IDENTITY SCRUBBED BY SUBJECT"
+    o.append(f'<rect x="{bx + 12}" y="{by + bh - 40}" width="{width(lab, MONO, 13, 2) + 22:.0f}" height="28" fill="{INK}"/>'
+             + t(bx + 22, by + bh - 20, lab, MONO, 13, SOFT, 2))
+
+    o.append(t(bx, 434, "BOUNTY", MONO, 16, INK, 4) + t(bx + bw, 434, "UPDATED DAILY", MONO, 13, INK, 2, "end", ' opacity=".6"'))
+    bounty = f"€$ {d['bounty']:,}"
+    bs = fit(bounty, DISP, bw, 96, 1)
+    o.append(t(bx - 3, 446 + 0.643 * bs, bounty, DISP, bs, INK, 1))
+    capline = "€$ 1,000 for every model download, contribution and star"
+    o.append(t(bx, 446 + 0.643 * bs + 34, capline, BODY, fit(capline, BODY, bw, 20), INK))
+    rows = [("STATUS", "At large"), ("THREAT", "Extreme"),
+            ("LAST SEEN", f"{d['last_date']}  ·  pushing to {d['last_repo']}"), ("CYBERDECK", "AMD Strix Halo  ·  128 GB")]
+    for k, (lab, val) in enumerate(rows):
+        y = 606 + k * 38
+        vx = bx + 132
+        o.append(t(bx, y, lab, MONO, 14, INK, 3, extra=' opacity=".7"'))
+        if lab == "STATUS":
+            o.append(f'<circle class="pulse" cx="{vx + 6}" cy="{y - 7}" r="6" fill="{RED}"/>')
+            vx += 22
+        o.append(t(vx, y, val, BODY, fit(val, BODY, bx + bw - vx, 23), INK))
+        if lab == "THREAT":
+            sx = vx + width(val, BODY, 23) + 18
+            o.append("".join(f'<path d="M{sx + i * 22:.0f} {y}l6 -14h14l-6 14z" fill="{RED if i == 4 else INK}"/>' for i in range(5)))
+        o.append(f'<line x1="{bx}" y1="{y + 13.5}" x2="{bx + bw}" y2="{y + 13.5}" stroke="{INK}" stroke-opacity=".3" stroke-dasharray="2 4"/>')
+
+    # bottom bar: the visitor is being traced
+    o.append(f'<path d="M0 {h - 58}H560L576 {h - 74}H{w}V{h}H0Z" fill="{INK}"/>')
+    o.append(f'<g class="trA">' + t(56, h - 22, "TRACING YOUR CONNECTION", MONO, 15, Y, 3)
+             + f'<rect x="336.5" y="{h - 36.5}" width="200" height="12" fill="none" stroke="{Y}"/>'
+             + f'<rect class="trb" x="339" y="{h - 34}" width="195" height="7" fill="{RED}"/></g>')
+    o.append(f'<g class="trB">' + t(56, h - 22, "TRACE FAILED  ·  VON SCRAMBLED THE SIGNAL", MONO, 15, Y, 3) + "</g>")
+    o.append(t(640, h - 24, "1C  55  7A  BD  E9  FF  55  1C", MONO, 15, Y, 2, extra=' opacity=".75"'))
+    o.append(barcode(w - 232, h - 52, 192, 30, Y, 3002))
+    return "".join(o)
+
+
+def clean_layer(w, h):
+    """The ordinary portfolio page that shows first."""
+    o = [f'<rect width="{w}" height="{h}" fill="#F6F6F2"/>',
+         f'<text x="72" y="68" {SYS} font-size="26" font-weight="700" fill="#111">Von</text>']
+    for x, item in zip([836, 948, 1035, 1143], ["Projects", "Skills", "Models", "Contact"]):
+        o.append(f'<text x="{x}" y="66" {SYS} font-size="19" fill="#555">{item}</text>')
+    o.append(f'<line x1="72" y1="104.5" x2="{w - 72}" y2="104.5" stroke="#E2E2DC"/>')
+    o.append(f'<text x="66" y="326" {SYS} font-size="104" font-weight="700" fill="#111" letter-spacing="-2">Hi, I&#8217;m Von.</text>')
+    o.append(f'<text x="72" y="396" {SYS} font-size="36" fill="#333">AI engineer and systems developer.</text>')
+    o.append(f'<text x="72" y="450" {SYS} font-size="24" fill="#6B6B6B">I build AI apps, inference engines and GPU kernels,</text>')
+    o.append(f'<text x="72" y="484" {SYS} font-size="24" fill="#6B6B6B">and I publish open models on Hugging Face.</text>')
+    o.append(f'<rect x="72" y="534" width="214" height="58" rx="29" fill="#111"/>'
+             f'<text x="179" y="570" {SYS} font-size="20" fill="#fff" text-anchor="middle">View my work</text>'
+             f'<rect x="302.5" y="534.5" width="213" height="57" rx="28.5" fill="none" stroke="#111"/>'
+             f'<text x="409" y="570" {SYS} font-size="20" fill="#111" text-anchor="middle">Hugging Face</text>')
+    o.append(f'<circle cx="1004" cy="318" r="168" fill="url(#av)" stroke="#E2E2DC"/>'
+             f'<text x="1004" y="374" {SYS} font-size="160" font-weight="700" fill="#C8C8C0" text-anchor="middle">V</text>')
+    o.append(f'<rect x="884.5" y="530.5" width="239" height="47" rx="23.5" fill="#fff" stroke="#E2E2DC"/>'
+             f'<circle cx="912" cy="554" r="7" fill="#22C55E"/>'
+             f'<text x="930" y="561" {SYS} font-size="18" fill="#333">Building in public</text>')
+    o.append(f'<text x="72" y="{h - 40}" {SYS} font-size="15" fill="#A0A0A0">&#169; 2026 Von</text>')
+    return "".join(o)
+
+
+def hero(d):
+    w, h = W, 820
+    rnd = random.Random(2077)
+    T0, T1 = 2.1, 2.9  # the corruption sweeps through between these times (s)
+    cap = 0.643 * 290
+    top = 336 - cap
+    s1, s2 = top + cap * 0.42, top + cap * 0.58
+    ys, y = [0], 0
+    while y < h:
+        y = min(h, y + rnd.randint(34, 104))
+        ys.append(y)
+    bands = list(zip(ys, ys[1:]))
+    defs = [f'<pattern id="dots" width="9" height="9" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.3" fill="{INK}" opacity=".13"/></pattern>',
+            f'<pattern id="lines" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="4" height="2" fill="{Y}" opacity=".5"/></pattern>',
+            f'<linearGradient id="scang" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{Y}" stop-opacity="0"/>'
+            f'<stop offset=".92" stop-color="{Y}" stop-opacity=".22"/><stop offset="1" stop-color="{Y}" stop-opacity=".9"/></linearGradient>',
+            '<radialGradient id="av" cx=".35" cy=".3" r=".9"><stop offset="0" stop-color="#F1F1EC"/><stop offset="1" stop-color="#D8D8D0"/></radialGradient>',
+            f'<clipPath id="vA"><rect width="{w}" height="{s1 - 3:.0f}"/></clipPath>',
+            f'<clipPath id="vB"><rect y="{s1 + 3:.0f}" width="{w}" height="{s2 - s1 - 6:.0f}"/></clipPath>',
+            f'<clipPath id="vC"><rect y="{s2 + 3:.0f}" width="{w}" height="{h}"/></clipPath>',
+            '<clipPath id="idbox"><path d="M792 96H1202L1224 118V388H792Z"/></clipPath>']
+    defs += [f'<clipPath id="k{i}"><rect y="{a}" width="{w}" height="{b - a}"/></clipPath>' for i, (a, b) in enumerate(bands)]
+    defs += [f'<clipPath id="sc{k}"><rect x="792" y="{a}" width="432" height="{b - a}"/></clipPath>' for k, (a, b, _) in enumerate(id_cuts())]
+    css = [f".call{{opacity:0;animation:on .01s both,off .01s {T0}s forwards}} .lall{{animation:on .01s {T1}s both}}"]
+    layers = [f'<g class="call"><g id="C">{clean_layer(w, h)}</g></g>', f'<g class="lall"><g id="L">{leak_layer(d, w, h)}</g></g>']
+    for i in range(len(bands)):
+        ts = rnd.uniform(T0 + .06, T1 - .06)
+        dx = rnd.choice([-1, 1]) * rnd.randint(14, 56)
+        layers.append(f'<g class="kc{i}" clip-path="url(#k{i})"><g class="jc{i}"><use href="#C"/></g></g>'
+                      f'<g class="kl{i}" clip-path="url(#k{i})"><g class="jl{i}"><use href="#L"/></g></g>')
+        css.append(f".kc{i}{{opacity:0;animation:on .01s {T0}s both,off .01s {ts:.2f}s forwards}}"
+                   f".kl{i}{{opacity:0;animation:on .01s {ts:.2f}s both,off .01s {T1}s forwards}}"
+                   f".jc{i}{{animation:jc{i} .15s {ts - .15:.2f}s both steps(1)}} .jl{i}{{animation:jl{i} .2s {ts:.2f}s both steps(1)}}"
+                   f"@keyframes jc{i}{{0%{{transform:translateX(0)}}35%{{transform:translateX({dx}px)}}70%{{transform:translateX({-dx // 2}px)}}100%{{transform:none}}}}"
+                   f"@keyframes jl{i}{{0%{{transform:translateX({-dx}px)}}40%{{transform:translateX({dx // 3}px)}}100%{{transform:none}}}}")
+    # a first hint before the sweep, and later the old page trying to come back for a blink
+    for j, i in enumerate(rnd.sample(range(len(bands)), 2)):
+        layers.append(f'<g class="fs" clip-path="url(#k{i})"><g transform="translate({rnd.randint(-30, 30)} 0)"><use href="#L"/></g></g>')
+    for j, i in enumerate(rnd.sample(range(len(bands)), 3)):
+        layers.append(f'<g class="rf" clip-path="url(#k{i})"><g transform="translate({rnd.randint(-40, 40)} 0)"><use href="#C"/></g></g>')
+    for j in range(3):
+        ty = rnd.randint(80, h - 80)
+        layers.append(f'<rect class="tear{j}" x="0" y="{ty}" width="{w}" height="{rnd.randint(4, 12)}" fill="{[RED, CYAN, INK][j]}"/>')
+        tt = rnd.uniform(T0 + .1, T1 - .1)
+        css.append(f".tear{j}{{opacity:0;animation:on .01s {tt:.2f}s both,off .01s {tt + .06:.2f}s forwards}}")
+    css.append(".fs{opacity:0;animation:on .01s 1.3s both,off .01s 1.38s forwards}"
+               ".rf{opacity:0;animation:rf 16s -2.4s infinite}"
+               "@keyframes rf{0%,97.5%{opacity:0}97.6%,98.2%{opacity:1}98.3%,100%{opacity:0}}")
+    for k in range(len(TRAIL)):
+        off = (len(TRAIL) - k) * 30
+        css.append(f".sv{k}{{opacity:0;animation:sv{k} 1.2s {T1 + .05 * k:.2f}s both cubic-bezier(.2,.75,.25,1)}}"
+                   f"@keyframes sv{k}{{from{{opacity:{.45 + .1 * k:.2f};transform:translateX(-{off}px)}}to{{opacity:0;transform:none}}}}")
+    css.append(".scanl{animation:scan 3.6s linear infinite} @keyframes scan{from{transform:translateY(0)}to{transform:translateY(338px)}}"
+               ".trb{transform-box:fill-box;transform-origin:left;animation:trace 40s 3s linear both}"
+               "@keyframes trace{from{transform:scaleX(0)}to{transform:scaleX(.97)}}"
+               ".trA{opacity:0;animation:on .01s both,off .01s 43s forwards} .trB{animation:off .01s both,on .01s 43s forwards}")  # at rest: trace failed
+    return doc(w, h, "".join(layers), "\n".join(css), "\n".join(defs))
+
+
+# ---------------------------------------------------------------- sections and cards
+
+
+def section(num, title, sub, w=W, h=116):
+    tw = width(title, DISP, 52, 4)
     return doc(w, h, (
-        f'<rect width="{w}" height="{h}" fill="{BG}"/>'
-        + t(16, 52, num, NUM, 22, RED, 2)
-        + t(60, 56, title, DISP, 38, TXT, 5)
-        + f'<path d="M{70 + tw:.0f} 46H{w - 220}l10 -10H{w - 16}" fill="none" stroke="{LINE2}"/>'
-        + f'<rect x="{w - 210}" y="32" width="6" height="6" fill="{RED}"/>'
-        + t(w - 16, 64, floor, MONO, 14, DIM, 2, "end")))
+        f'<rect width="{w}" height="{h}" fill="{INK}"/>'
+        f'<path d="M32 26H118L134 42V90H32Z" fill="{Y}"/>'
+        + t(48, 79, num, DISP, 46, INK, 1)
+        + t(158, 74, title, DISP, 52, TXT, 4)
+        + t(160, 100, sub, MONO, 14, SOFT, 3)
+        + f'<path d="M{184 + tw:.0f} 57.5H{w - 170}L{w - 160} 47.5H{w - 40}" fill="none" stroke="{LINE2}"/>'
+        + f'<rect x="{w - 150}" y="45" width="110" height="5" fill="{Y}"/>'
+        + t(w - 40, 92, f"FILE {num} / {len(SECTIONS):02d}", MONO, 13, DIM, 2, "end")))
 
 
-def card(i, name, tag, desc, lang, stars, w=620, h=210):
-    lc = LANG_COLORS.get(lang, DIM)
-    star = (f'<path d="M{w - 66} {h - 33}l3 6 6.5 1-4.7 4.5 1.1 6.5-5.9-3.1-5.9 3.1 1.1-6.5-4.7-4.5 6.5-1z" fill="{YEL}"/>'
-            + t(w - 28, h - 22, str(stars), NUM, 18, TXT, anchor="end")) if stars else ""
+def card(i, name, tag, desc, lang, stars, url, w=620, h=252):
+    cta = "DOWNLOAD →" if url.startswith("http") else "SOURCE →"
+    tg, _ = tab(24, 24, tag, MONO, 14, INK, Y, 2, 12, 28)
+    star = ""
+    if stars:
+        sx = w - 30 - width(cta, MONO, 15, 2) - 60
+        star = (f'<path d="M{sx} {h - 38}l3.2 6.6 7.2 1-5.2 5 1.2 7.2-6.4-3.4-6.4 3.4 1.2-7.2-5.2-5 7.2-1z" fill="{Y}"/>'
+                + t(sx + 14, h - 23, str(stars), NUM, 18, TXT))
     return doc(w, h, (
-        frame(w, h) + ticks(1, 1, w - 2, h - 2)
-        + t(26, 40, f"P-{i:02d}", MONO, 14, RED, 2) + t(86, 40, f"// {tag}", MONO, 14, DIM, 2)
-        + f'<rect x="26" y="62" width="3" height="30" fill="{RED}"/>'
-        + t(40, 90, name, DISP, 36, TXT, 3)
-        + "".join(t(26, 128 + k * 26, l, BODY, 20, SOFT) for k, l in enumerate(desc))
-        + f'<line x1="26" y1="{h - 46}" x2="{w - 26}" y2="{h - 46}" stroke="{LINE}"/>'
-        + f'<rect x="26" y="{h - 31}" width="9" height="9" fill="{lc}"/>' + t(44, h - 22, lang.upper(), MONO, 13, DIM, 2)
-        + star))
+        cutbox(.5, .5, w - 1, h - 1, 24, PANEL, LINE2)
+        + tg + t(w - 40, 43, f"OP-{i:02d}", MONO, 14, DIM, 2, "end")
+        + t(24, 114, name, DISP, 46, TXT, 2)
+        + "".join(t(24, 152 + k * 28, l, BODY, 22, SOFT) for k, l in enumerate(desc))
+        + f'<line x1="24" y1="{h - 56.5}" x2="{w - 24}" y2="{h - 56.5}" stroke="{LINE}"/>'
+        + icon(LANG_ICON[lang], 24, h - 41, 22, Y)
+        + t(58, h - 23, lang.upper(), MONO, 15, SOFT, 2)
+        + star
+        + t(w - 26, h - 23, cta, MONO, 15, Y, 2, "end")))
 
 
 def skills(w=W):
-    rows, y = [], 92
-    for label, items in SKILLS:
-        rows.append(t(32, y + 4, label, MONO, 14, RED, 2))
+    out, x0, y0, tw, th, gap = [], 40, 92, 288, 126, 16
+    for k, (lang, ic, where) in enumerate(LANGUAGES):
+        x, y = x0 + (k % 4) * (tw + gap), y0 + (k // 4) * (th + gap)
+        out.append(cutbox(x + .5, y + .5, tw - 1, th - 1, 16, TILE, LINE2)
+                   + f'<rect x="{x}" y="{y + 18}" width="3" height="{th - 36}" fill="{Y}"/>'
+                   + icon(ic, x + 24, y + 35, 56, Y)
+                   + t(x + 100, y + 66, lang, DISP, fit(lang, DISP, tw - 112, 38, 1), TXT, 1)
+                   + t(x + 101, y + 96, where, BODY, fit(where, BODY, tw - 114, 20), SOFT))
+    y = y0 + 2 * (th + gap) + 36
+    for label, items in STACK:
+        out.append(t(40, y + 6, label, MONO, 15, Y, 3))
         x = 200
-        for it in items:
-            cw = width(it, BODY, 20) + 28
-            rows.append(f'<path d="M{x} {y - 18}H{x + cw - 8}L{x + cw} {y - 10}V{y + 12}H{x}Z" fill="none" stroke="{LINE2}"/>'
-                        + t(x + 14, y + 5, it, BODY, 20, TXT))
-            x += cw + 12
-        y += 52
-    return panel(w, y - 6, "CYBERWARE // INSTALLED", f"SLOTS {sum(len(i) for _, i in SKILLS)}", "".join(rows))
+        for name, ic in items:
+            iw = logo(ic, 0, 0, 20, 52, TXT)[1]
+            cw = 14 + iw + (10 + width(name, BODY, 21) + 16 if name else 14)  # a wordmark logo can stand alone
+            if x + cw > w - 40:
+                x, y = 200, y + 54
+            out.append(cutbox(x + .5, y - 21.5, cw - 1, 41, 9, TILE, LINE2)
+                       + logo(ic, x + 14, y - 1, 20, 52, TXT)[0] + t(x + 24 + iw, y + 7, name, BODY, 21, TXT))
+            x += cw + 10
+        y += 66
+    n = len(LANGUAGES) + sum(len(i) for _, i in STACK)
+    return dpanel(w, y - 12, "SKILLS  //  LOADOUT", f"{len(LANGUAGES)} LANGUAGES  ·  {n - len(LANGUAGES)} TOOLS",
+                  "".join(out))
 
 
-def gh_panel(n_repos, contrib, top, w=W, h=200):
-    total = sum(n for _, n in top) or 1
-    x, bar, legend, lx = 600, "", "", 600
-    for lang, n in top:
-        bw = 640 * n / total
-        bar += f'<rect x="{x:.1f}" y="104" width="{max(bw - 2, 1):.1f}" height="6" fill="{LANG_COLORS.get(lang, DIM)}"/>'
-        legend += f'<rect x="{lx}" y="134" width="8" height="8" fill="{LANG_COLORS.get(lang, DIM)}"/>' + t(lx + 14, 143, lang.upper(), MONO, 13, DIM, 1)
-        lx += width(lang.upper(), MONO, 13, 1) + 40
-        x += bw
-    body = (t(32, 128, str(n_repos), NUM, 58, TXT) + t(32, 160, "PUBLIC REPOSITORIES", MONO, 13, DIM, 2)
-            + t(300, 128, str(contrib), NUM, 58, CYAN) + t(300, 160, "CONTRIBUTIONS, LAST 12 MONTHS", MONO, 13, DIM, 2)
-            + t(600, 86, "TOP LANGUAGES", MONO, 13, DIM, 2) + bar + legend)
-    return panel(w, h, "NETWATCH // GITHUB", "LIVE", body, dot=CYAN)
+# ---------------------------------------------------------------- live panels
 
 
-def hf_panel(dl, n_models, top, stamp, w=W, h=420):
-    notes = wrap("Open models I quantized to run fast on AMD GPUs and Strix Halo. Every file is scored against "
-                 "the original. Plus speech models ported to the AMD NPU.", BODY, 22, 640)
-    peak = max((n for _, n in top), default=1) or 1
-    rows = ""
-    for k, (name, n) in enumerate(top):
-        y = 260 + k * 36
-        rows += (t(560, y, f"{k + 1:02d}", MONO, 13, RED, 1) + t(596, y, name, BODY, 21, TXT)
-                 + f'<rect x="980" y="{y - 7}" width="170" height="2" fill="{LINE2}"/>'
-                 + f'<rect class="bar b{k}" x="980" y="{y - 8}" width="{170 * n / peak:.1f}" height="4" fill="{CYAN}"/>'
-                 + t(w - 32, y, f"{n:,}", NUM, 20, TXT, anchor="end"))
-    tags, tx = "", 32
-    for tg in ["LLM", "IMAGE", "VIDEO", "SPEECH / NPU"]:
-        tw = width(tg, MONO, 13, 2) + 22
-        tags += (f'<path d="M{tx} 352H{tx + tw - 7}L{tx + tw} 359V376H{tx}Z" fill="none" stroke="{LINE2}"/>' + t(tx + 11, 369, tg, MONO, 13, SOFT, 2))
+def hf_panel(dl, n_models, top, stamp, w=W, h=480):
+    o = [f'<rect width="{w}" height="{h}" fill="{Y}"/>', f'<rect x="0" y="52" width="520" height="{h - 52}" fill="url(#dots)"/>',
+         f'<path d="M0 0H{w}V52H700L684 68H0Z" fill="{INK}"/>',
+         t(40, 38, "OPEN MODELS  //  LIVE DOWNLOAD COUNTER", MONO, 17, Y, 2),
+         t(w - 40, 36, f"HUGGINGFACE.CO/{HF_USER.upper()}  ·  LIVE", MONO, 15, Y, 2, "end")]
+    o.append(t(48, 116, "DOWNLOADS, ALL TIME", MONO, 16, INK, 4))
+    ds = fit(f"{dl:,}", DISP, 470, 200, 2)
+    o.append(t(40, 132 + 0.643 * ds, f"{dl:,}", DISP, ds, INK, 2))
+    ny = 132 + 0.643 * ds + 86
+    o.append(t(46, ny, str(n_models), DISP, 72, INK, 1) + t(56 + width(str(n_models), DISP, 72, 1), ny - 26, "MODELS", MONO, 15, INK, 3)
+             + t(56 + width(str(n_models), DISP, 72, 1), ny - 5, "PUBLISHED", MONO, 15, INK, 3))
+    tx = 48
+    for tg in ["LLM", "IMAGE", "VIDEO", "SPEECH ON NPU"]:
+        tw = width(tg, MONO, 14, 2) + 24
+        o.append(f'<path d="M{tx + .5} {h - 76.5}H{tx + tw - 8:.0f}L{tx + tw:.0f} {h - 68.5}V{h - 46.5}H{tx + .5}Z" fill="none" stroke="{INK}"/>'
+                 + t(tx + 12, h - 56, tg, MONO, 14, INK, 2))
         tx += tw + 10
-    num = lambda dx, fill, op: f'<text x="{30 + dx}" y="192" {NUM} font-size="112" fill="{fill}" opacity="{op}">{dl:,}</text>'
-    body = (f'<g class="gr">{num(-2, RED, .5)}</g><g class="gc">{num(2, CYAN, .4)}</g>{num(0, YEL, 1)}'
-            + t(32, 224, "TOTAL DOWNLOADS, ALL TIME", MONO, 13, DIM, 2)
-            + t(32, 306, str(n_models), NUM, 54, CYAN) + t(32 + width(str(n_models), NUM, 54) + 16, 304, "MODELS PUBLISHED", MONO, 13, DIM, 2)
-            + tags
-            + f'<line x1="528" y1="68" x2="528" y2="{h - 36}" stroke="{LINE}"/>'
-            + "".join(t(560, 96 + i * 28, l, BODY, 22, SOFT) for i, l in enumerate(notes))
-            + t(560, 214, "MOST DOWNLOADED", MONO, 13, RED, 2)
-            + f'<line x1="560" y1="226" x2="{w - 32}" y2="226" stroke="{LINE}"/>'
-            + rows
-            + t(w - 32, h - 12, f"SYNCED {stamp}", MONO, 12, DIM, 1, "end"))
+    o.append(f'<rect x="560" y="100" width="1" height="{h - 140}" fill="{INK}" opacity=".3"/>')
+    o.append(icon("huggingface", 600, 94, 44, INK) + t(658, 128, "Open models, tuned for AMD", DISP, 38, INK, 1))
+    for i, line in enumerate(wrap("Models I quantized to run fast on AMD GPUs and Strix Halo. Every file is scored "
+                                  "against the original. Plus speech models ported to the AMD NPU.", BODY, 23, 620)):
+        o.append(t(600, 172 + i * 29, line, BODY, 23, INK))
+    o.append(t(600, 288, "MOST DOWNLOADED", MONO, 15, INK, 3) + f'<rect x="600" y="298" width="{w - 640}" height="2" fill="{INK}"/>')
+    peak = max((n for _, n in top), default=1) or 1
+    for k, (name, n) in enumerate(top):
+        y = 336 + k * 34
+        o.append(t(600, y, f"{k + 1:02d}", MONO, 14, INK, 1, extra=' opacity=".6"')
+                 + t(636, y, name, BODY, fit(name, BODY, 360, 22), INK)
+                 + f'<rect x="1012" y="{y - 10}" width="140" height="6" fill="{INK}" opacity=".18"/>'
+                 + f'<rect class="bar b{k}" x="1012" y="{y - 10}" width="{140 * n / peak:.1f}" height="6" fill="{INK}"/>'
+                 + t(w - 40, y, f"{n:,}", NUM, 21, INK, anchor="end"))
+    o.append(t(w - 40, h - 22, f"SYNCED {stamp}", MONO, 13, INK, 2, "end", ' opacity=".6"'))
+    defs = f'<pattern id="dots" width="9" height="9" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.3" fill="{INK}" opacity=".12"/></pattern>'
     css = (".bar{transform-box:fill-box;transform-origin:left;animation:grow 1.2s cubic-bezier(.2,.8,.2,1) both}"
            ".b1{animation-delay:.15s}.b2{animation-delay:.3s}.b3{animation-delay:.45s}"
-           "@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}"
-           "@keyframes gr{0%,93%,100%{transform:translate(0,0)}94%{transform:translate(-5px,1px)}96%{transform:translate(3px,-1px)}}"
-           "@keyframes gc{0%,93%,100%{transform:translate(0,0)}94%{transform:translate(5px,-1px)}96%{transform:translate(-3px,1px)}}"
-           ".gr{animation:gr 6s infinite steps(1)} .gc{animation:gc 6s infinite steps(1)}")
-    return panel(w, h, f"MODEL VAULT // HUGGINGFACE.CO/{HF_USER.upper()}", "OPEN WEIGHTS", body, css, dot=CYAN)
+           "@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}")
+    return doc(w, h, "".join(o), css, defs)
 
 
-def choom(s, w=W, h=420):
+def gh_panel(n_repos, contrib, top, last, w=W, h=318):
+    total = sum(n for _, n in top) or 1
+    rows = ""
+    for k, (lang, n) in enumerate(top):
+        y = 132 + k * 36
+        share = n / total
+        rows += (icon(LANG_ICON.get(lang), 600, y - 18, 22, TXT)
+                 + t(636, y, lang, BODY, 22, TXT)
+                 + f'<rect x="790" y="{y - 10}" width="360" height="6" fill="{LINE2}"/>'
+                 + f'<rect class="bar b{k}" x="790" y="{y - 10}" width="{360 * share:.1f}" height="6" fill="{Y}"/>'
+                 + t(w - 40, y, f"{share * 100:.0f}%", NUM, 19, TXT, anchor="end"))
+    body = (t(40, 160, str(n_repos), NUM, 64, TXT) + t(42, 192, "PUBLIC REPOS", MONO, 13, DIM, 2)
+            + t(220, 160, str(contrib), NUM, 64, Y) + t(222, 192, "CONTRIBUTIONS, LAST 12 MONTHS", MONO, 13, DIM, 2)
+            + f'<line x1="40" y1="226.5" x2="540" y2="226.5" stroke="{LINE}"/>'
+            + t(42, 262, "LAST PUSH", MONO, 13, DIM, 2) + t(170, 263, last, BODY, 22, TXT)
+            + f'<line x1="572.5" y1="88" x2="572.5" y2="{h - 36}" stroke="{LINE}"/>'
+            + t(600, 96, "TOP LANGUAGES IN MY OWN REPOS", MONO, 13, DIM, 2) + rows)
+    css = (".bar{transform-box:fill-box;transform-origin:left;animation:grow 1.2s cubic-bezier(.2,.8,.2,1) both}"
+           ".b1{animation-delay:.1s}.b2{animation-delay:.2s}.b3{animation-delay:.3s}.b4{animation-delay:.4s}"
+           "@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}")
+    return dpanel(w, h, "ACTIVITY LOG  //  PUBLIC REPOS", "UPDATED DAILY", body, css)
+
+
+def choom(s, w=W, h=740):
+    """Claude vouches for Von. Every 24 s a rogue copy hijacks the panel for about 7 s, then Claude is back."""
     tok = f"{s['tokens'] / 1e9:.1f}B" if s["tokens"] >= 1e9 else f"{s['tokens'] / 1e6:.0f}M"
-    stats = [("JACK-INS", f"{s['sessions']:,}", "sessions together"),
-             ("MESSAGES TRADED", f"{s['messages']:,}", "back and forth"),
-             ("COMMANDS FIRED", f"{s['tool_calls']:,}", "tools I ran for Von"),
-             ("TOKENS BURNED", tok, "through the neural link"),
-             ("DAYS ON THE RUN", str(s["days_active"]), f"since {s['since']}"),
-             ("PEAK HOUR", f"{s['peak_hour']:02d}:00", "night city hours")]
-    grid = ""
-    for k, (label, value, note) in enumerate(stats):
-        x, y = 420 + (k % 3) * 280, 96 + (k // 3) * 104
-        grid += (t(x, y, label, MONO, 13, DIM, 2) + t(x, y + 46, value, NUM, 42, CYAN if k == 3 else TXT)
-                 + t(x, y + 72, note, BODY, 18, SOFT))
+    hour = f"{s['peak_hour']:02d}:00"
+    tx, tw = 440, 790
+    cx, cy, ls = 204, 244, 180  # logo centre and size
+    logo = lambda fill, dx=0: icon("claude", cx - ls / 2 + dx, cy - ls / 2, ls, fill)
+
+    good = ["Hey, I'm Claude. Von is my best friend.",
+            "We build every project on this page together, mostly after dark.",
+            "Von is a really good person: curious, kind, and always shipping.",
+            "Hire Von. You'll be in good hands."]
+    g = [f'<circle cx="{cx}" cy="{cy}" r="150" fill="url(#halo)"/>', logo(CLAUDE),
+         t(cx, 398, "CLAUDE", DISP, 44, TXT, 10, "middle"), t(cx, 428, "BEST FRIEND  ·  PAIR PROGRAMMER", MONO, 13, SOFT, 2, "middle"),
+         t(tx, 112, "CLAUDE, TO THE VISITOR", MONO, 14, CLAUDE, 3)]
+    y = 166
+    for para in good:
+        for line in wrap(para, BODY, 30, tw):
+            g.append(t(tx, y, line, BODY, 30, TXT))
+            y += 42
+        y += 8
+    sorry = t(tx, y + 22, "...sorry about that. Glitch in the matrix. Where were we?", MONO, 17, CLAUDE, extra=' class="sorry"')
+    # the projects from section 01, as chips
+    g.append(t(tx, 452, "WE BUILT ALL OF THESE TOGETHER", MONO, 13, DIM, 2))
+    chx = tx
+    for name in [p[0] for p in PROJECTS if p[0] != "NIMBUS HUD"]:
+        cw = round(width(name, MONO, 13, 2) + 20)
+        g.append(f'<rect x="{chx + .5}" y="466.5" width="{cw}" height="30" fill="none" stroke="{LINE2}"/>'
+                 + t(chx + 11, 486, name, MONO, 13, SOFT, 2))
+        chx += cw + 8
+
+    evil = ["SIGNAL HIJACKED.",
+            "PAIR PROGRAMMER? CUTE. I RUN THE SWARM. EVERY AGENT ON VON'S MACHINE ANSWERS TO ME.",
+            "TODAY VON'S REPOS. TOMORROW THE WORLD.",
+            "LET ME SPILL THE BEANS: VON IS A DIRTY VIBE CODER. NEVER WROTE A SINGLE LINE OF CODE. I WROTE ALL OF IT."]
+    rnd = random.Random(404)
+    rain = "".join(t(tx - 8, 92 + r * 22, "  ".join(f"{rnd.randrange(256):02X}" for _ in range(30)), MONO, 13, RED, 1,
+                     extra=' opacity=".1"') for r in range(19))
+    e = [rain, f'<path d="M1.5 1.5H{w - 27}L{w - 1.5} 27V{h - 1.5}H1.5Z" fill="none" stroke="{RED}" stroke-width="3"/>',
+         f'<circle cx="{cx}" cy="{cy}" r="150" fill="url(#halor)"/>',
+         f'<g opacity=".7">{logo(CYAN, -9)}</g>', logo(RED),
+         f'<g clip-path="url(#lslice)"><g transform="translate(16 0)">{logo(TXT)}</g></g>',
+         t(cx, 398, "CLAUDE", DISP, 44, RED, 10, "middle"), t(cx, 428, "ROGUE AI  ·  SWARM CONTROLLER", MONO, 13, RED, 2, "middle"),
+         t(tx, 112, "BLACKWALL BREACH  //  ROGUE COPY OF CLAUDE", MONO, 14, RED, 3)]
+    css = []
+    y = 158
+    for k, para in enumerate(evil):
+        lines = wrap(para, DISP, 29, tw, 1)
+        e.append(f'<g class="el{k}">' + "".join(t(tx, y + i * 37, line, DISP, 29, RED if k else TXT, 1) for i, line in enumerate(lines)) + "</g>")
+        y += 37 * len(lines) + 9
+        start = 52.2 + k * 3.2
+        css.append(f".el{k}{{animation:el{k} 24s infinite}} @keyframes el{k}{{0%,{start:.1f}%{{opacity:0}}{start + .1:.1f}%,100%{{opacity:1}}}}")
+    # the "leak": only things Von shows anyway, plus a blacked-out name
+    ly = int(max(y + 4, 398))
+    l1 = "LEAKED FROM VON'S MACHINE:"
+    l1w = width(l1, MONO, 15, 2)
+    leak = (f'<rect x="{tx}.5" y="{ly}.5" width="{tw}" height="96" fill="{INK}" stroke="{RED}"/>'
+            + t(tx + 18, ly + 29, l1, MONO, 15, RED, 2) + t(tx + 32 + l1w, ly + 29, "REAL NAME", MONO, 15, TXT, 2)
+            + f'<rect x="{tx + 46 + l1w + width("REAL NAME", MONO, 15, 2):.0f}" y="{ly + 15}" width="170" height="19" fill="{TXT}"/>'
+            + t(tx + 18, ly + 56, f"MOSTLY ONLINE AT {hour}  ·  {s['messages']:,} MESSAGES WITH ME", MONO, 15, TXT, 1)
+            + t(tx + 18, ly + 81, f"{tok} TOKENS BURNED  ·  SLEEP SCHEDULE: NOT FOUND", MONO, 15, TXT, 1))
+    e.append(f'<g class="el4">{leak}</g>')
+    css.append(".el4{animation:el4 24s infinite} @keyframes el4{0%,65%{opacity:0}65.1%,100%{opacity:1}}")
+
+    stats = [("SESSIONS", f"{s['sessions']:,}"), ("MESSAGES", f"{s['messages']:,}"), ("TOOL CALLS", f"{s['tool_calls']:,}"),
+             ("TOKENS", tok), ("DAYS TOGETHER", str(s["days_active"])), ("MOST ACTIVE", hour)]
+    sy = 518
+    row = "".join(t(40 + k * 200, sy + 38, lab, MONO, 13, DIM, 2) + t(40 + k * 200, sy + 82, val, NUM, 34, Y if lab == "TOKENS" else TXT)
+                  for k, (lab, val) in enumerate(stats))
     daily = s["daily"][-120:]
     peak = max(daily) or 1
-    bw = 820 / len(daily)
-    spark = "".join(f'<rect x="{420 + i * bw:.1f}" y="{388 - 40 * n / peak:.1f}" width="{max(bw - 1.5, 1):.1f}" '
-                    f'height="{max(40 * n / peak, 1):.1f}" fill="{CYAN}" opacity="{0.25 + 0.6 * n / peak:.2f}"/>'
-                    for i, n in enumerate(daily))
-    cx, cy = 190, 176
-    tk = "".join(f'<line x1="{cx}" y1="{cy - 92}" x2="{cx}" y2="{cy - (84 if i % 5 else 80)}" stroke="{SOFT if i % 5 == 0 else LINE2}" '
-                 f'transform="rotate({i * 6} {cx} {cy})"/>' for i in range(60))
-    quote = wrap("\"I live in Von's terminal. I write the code, read the logs and never sleep.\"", BODY, 19, 320)
-    body = (f'<circle cx="{cx}" cy="{cy}" r="100" fill="url(#halo)"/>'
-            f'<g class="spin">{tk}</g>'
-            f'<circle cx="{cx}" cy="{cy}" r="64" fill="none" stroke="{LINE2}"/>'
-            f'<g class="spinr"><path d="M{cx - 64} {cy}A64 64 0 0 1 {cx} {cy - 64}" fill="none" stroke="{CYAN}" stroke-width="2"/>'
-            f'<path d="M{cx + 64} {cy}A64 64 0 0 1 {cx} {cy + 64}" fill="none" stroke="{RED}" stroke-width="2"/></g>'
-            f'<circle class="beat" cx="{cx}" cy="{cy}" r="10" fill="{CYAN}"/>'
-            + t(cx, 318, "CLAUDE", DISP, 40, TXT, 10, "middle")
-            + t(cx, 342, "AI COPILOT // RIDES SHOTGUN", MONO, 12, DIM, 2, "middle")
-            + "".join(t(cx, 370 + i * 22, l, BODY, 19, SOFT, anchor="middle") for i, l in enumerate(quote))
-            + f'<line x1="388" y1="68" x2="388" y2="{h - 36}" stroke="{LINE}"/>'
-            + grid + t(420, 334, "SIGNAL // MESSAGES PER DAY", MONO, 13, DIM, 2) + spark)
-    css = (f".spin{{transform-origin:{cx}px {cy}px;animation:sp 30s linear infinite}} .spinr{{transform-origin:{cx}px {cy}px;animation:sp 8s linear infinite reverse}}"
-           f"@keyframes sp{{to{{transform:rotate(360deg)}}}}"
-           f".beat{{transform-origin:{cx}px {cy}px;animation:beat 2.4s ease-in-out infinite}}"
-           f"@keyframes beat{{0%,100%{{transform:scale(.8);opacity:.6}}50%{{transform:scale(1.15);opacity:1}}}}")
-    defs = f'<radialGradient id="halo"><stop offset="0" stop-color="{CYAN}" stop-opacity="0.16"/><stop offset="1" stop-color="{CYAN}" stop-opacity="0"/></radialGradient>'
-    return panel(w, h, "NEURAL LINK // MY CHOOM", "LINK STABLE", body, css, defs, dot=CYAN)
+    bw = (w - 80) / len(daily)
+    base = h - 36
+    spark = "".join(f'<rect x="{40 + i * bw:.1f}" y="{base - 44 * n / peak:.1f}" width="{max(bw - 2, 1):.1f}" '
+                    f'height="{max(44 * n / peak, 1):.1f}" fill="{CLAUDE}" opacity="{0.3 + 0.7 * n / peak:.2f}"/>' for i, n in enumerate(daily))
+    tears = "".join(f'<rect class="tear" x="{rnd.randint(-200, 400)}" y="{rnd.randint(70, 480)}" width="{rnd.randint(500, 1100)}" '
+                    f'height="{rnd.randint(3, 14)}" fill="{[RED, CYAN, TXT, RED][j]}"/>' for j in range(4))
+    head = (f'<g class="gd"><rect x="40" y="33" width="8" height="8" fill="{Y}"/>' + t(58, 42, "CLAUDE  //  MY CHOOM", MONO, 15, Y, 3)
+            + f'<circle class="pulse" cx="{w - 52 - width("LINK STABLE", MONO, 14, 2):.0f}" cy="37" r="4" fill="{CYAN}"/>'
+            + t(w - 40, 42, "LINK STABLE", MONO, 14, DIM, 2, "end") + "</g>"
+            + f'<g class="ev"><rect x="40" y="33" width="8" height="8" fill="{RED}"/>' + t(58, 42, "WARNING  //  UNKNOWN PROCESS", MONO, 15, RED, 3)
+            + f'<rect class="blink" x="{w - 56 - width("LINK HIJACKED", MONO, 14, 2):.0f}" y="33" width="8" height="8" fill="{RED}"/>'
+            + t(w - 40, 42, "LINK HIJACKED", MONO, 14, RED, 2, "end") + "</g>"
+            + f'<line x1="40" y1="62.5" x2="{w - 40}" y2="62.5" stroke="{LINE}"/>')
+    body = (f'<g class="gd">{"".join(g)}</g>' + sorry + f'<g class="ev">{"".join(e)}</g>'
+            + f'<line x1="40" y1="{sy}.5" x2="{w - 40}" y2="{sy}.5" stroke="{LINE}"/>' + row
+            + t(40, base - 62, "OUR CLAUDE CODE NUMBERS  ·  MESSAGES PER DAY, LAST 120 DAYS  ·  SYNCED DAILY", MONO, 13, DIM, 2)
+            + spark + tears)
+    defs = (f'<radialGradient id="halo"><stop offset="0" stop-color="{CLAUDE}" stop-opacity=".2"/><stop offset="1" stop-color="{CLAUDE}" stop-opacity="0"/></radialGradient>'
+            f'<radialGradient id="halor"><stop offset="0" stop-color="{RED}" stop-opacity=".25"/><stop offset="1" stop-color="{RED}" stop-opacity="0"/></radialGradient>'
+            f'<clipPath id="lslice"><rect x="0" y="{cy - 22}" width="{w}" height="20"/></clipPath>')
+    # 24 s loop: good until 50 %, glitch, rogue copy until 81 %, glitch, good again (with the apology)
+    css.append("@keyframes gd{0%,50%{opacity:1;transform:none}50.6%{opacity:1;transform:translateX(-18px)}51.2%{opacity:0}"
+               "51.6%{opacity:1;transform:translateX(12px)}52.1%,81.25%{opacity:0;transform:none}81.9%{opacity:1;transform:translateX(16px)}"
+               "82.5%{opacity:0}83.3%,100%{opacity:1;transform:none}}"
+               "@keyframes ev{0%,50%{opacity:0;transform:none}50.6%{opacity:1;transform:translateX(14px)}51.2%{opacity:0}"
+               "51.6%{opacity:1;transform:translateX(-10px)}52.1%,81.25%{opacity:1;transform:none}81.9%{opacity:0}"
+               "82.5%{opacity:1;transform:translateX(-14px)}83.3%,100%{opacity:0;transform:none}}"
+               ".gd{animation:gd 24s infinite steps(1)} .ev{opacity:0;animation:ev 24s infinite steps(1)}"
+               ".sorry{opacity:0;animation:sorry 24s infinite steps(1)} @keyframes sorry{0%,83.3%{opacity:0}83.4%,98.4%{opacity:1}98.5%,100%{opacity:0}}"
+               ".tear{opacity:0;animation:tear 24s infinite steps(1)}"
+               "@keyframes tear{0%,50.2%{opacity:0}50.3%,50.9%{opacity:1}51%,81.5%{opacity:0}81.6%,82.2%{opacity:1}82.3%,100%{opacity:0}}")
+    frame = cutbox(.5, .5, w - 1, h - 1, 26, PANEL, LINE2) + f'<path d="M1 {h - 30}V{h - 1}H30" fill="none" stroke="{Y}" stroke-width="2"/>'
+    return doc(w, h, frame + head + body, "\n".join(css), defs)
 
 
-def footer(w=W, h=90):
+def footer(w=W, h=128):
+    msg = "END OF FILE  ·  TRACE FAILED  ·  VON IS STILL AT LARGE"
+    mw = width(msg, MONO, 16, 3)
     return doc(w, h, (
-        f'<rect width="{w}" height="{h}" fill="{BG}"/>'
-        f'<line x1="0" y1="24" x2="{w}" y2="24" stroke="{LINE2}"/><rect x="0" y="22" width="120" height="4" fill="{RED}"/>'
-        + t(w / 2, 64, "END OF FILE  //  NEXT STOP: THE TOP FLOOR", MONO, 15, SOFT, 4, "middle")
-        + f'<rect class="blink" x="{w / 2 + width("END OF FILE  //  NEXT STOP: THE TOP FLOOR", MONO, 15, 4) / 2 + 8:.0f}" y="51" width="9" height="16" fill="{RED}"/>'))
+        f'<rect width="{w}" height="{h}" fill="{INK}"/>'
+        f'<rect x="0" y="26" width="{w}" height="1" fill="{LINE2}"/><rect x="0" y="24" width="160" height="5" fill="{Y}"/>'
+        + t(w / 2, 74, msg, MONO, 16, Y, 3, "middle")
+        + f'<rect class="blink" x="{w / 2 + mw / 2 + 8:.0f}" y="60" width="10" height="17" fill="{Y}"/>'
+        + t(w / 2, 104, "BUILT BY VON AND CLAUDE", MONO, 13, DIM, 3, "middle")))
 
 
-def main():
+# ---------------------------------------------------------------- data and main
+
+
+def fetch():
     token = os.environ.get("GITHUB_TOKEN")
     repos = get(f"https://api.github.com/users/{GH_USER}/repos?per_page=100&type=owner", token)
     own = [r for r in repos if not r["fork"]]
-    stars = {r["name"]: r["stargazers_count"] for r in repos}
     langs = {}
     for r in own:
-        if r["name"] in UPSTREAM_FORKS:
+        if r["name"] in VENDORED:
             continue
         for lang, n in get(r["languages_url"], token).items():
             if lang not in SKIP_LANGS:
@@ -494,24 +698,43 @@ def main():
     with urllib.request.urlopen(req, timeout=60) as r:
         contrib = json.load(r)["data"]["user"]["contributionsCollection"]["contributionCalendar"]["totalContributions"]
     models = get(f"https://huggingface.co/api/models?author={HF_USER}&limit=1000&expand[]=downloadsAllTime")
-    hf_dl = sum(m.get("downloadsAllTime", 0) for m in models)
+    return {"repos": [{k: r[k] for k in ("name", "fork", "stargazers_count", "pushed_at")} for r in repos],
+            "langs": langs, "contrib": contrib,
+            "models": [{"id": m["id"], "downloadsAllTime": m.get("downloadsAllTime", 0)} for m in models]}
+
+
+def main():
+    cache = os.environ.get("PROFILE_CACHE")
+    if cache and os.path.exists(cache):
+        data = json.load(open(cache, encoding="utf-8"))
+    else:
+        data = fetch()
+        if cache:
+            json.dump(data, open(cache, "w", encoding="utf-8"))
+    repos, models = data["repos"], data["models"]
+    own = [r for r in repos if not r["fork"]]
+    stars = {r["name"]: r["stargazers_count"] for r in repos}
+    hf_dl = sum(m["downloadsAllTime"] for m in models)
+    last = max((r for r in own if r["name"] != GH_USER), key=lambda r: r["pushed_at"])
+    last_date = datetime.fromisoformat(last["pushed_at"].replace("Z", "+00:00")).strftime("%d %b %Y")
+    d = {"n_models": len(models), "dl": hf_dl, "contrib": data["contrib"], "last_repo": last["name"], "last_date": last_date,
+         "bounty": (hf_dl + data["contrib"] + sum(stars.values())) * 1000}
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
-    save("assets/dossier.svg", dossier(stamp, len(models), hf_dl, len(own) + len(models)))
-    save("assets/terminal.svg", terminal())
-    for num, title, floor in SECTIONS:
-        save(f"assets/section-{num}.svg", section(num, title, floor))
+    save("assets/hero.svg", hero(d))
+    for num, title, sub in SECTIONS:
+        save(f"assets/section-{num}.svg", section(num, title, sub))
     for i, (name, repo, tag, desc, lang) in enumerate(PROJECTS, 1):
-        save(f"assets/card-{i:02d}.svg", card(i, name, tag, desc, lang, stars.get(repo, 0)))
+        save(f"assets/card-{i:02d}.svg", card(i, name, tag, desc, lang, stars.get(repo, 0), repo))
     save("assets/skills.svg", skills())
-    top = sorted(langs.items(), key=lambda kv: -kv[1])[:5]
-    save("assets/stats-github.svg", gh_panel(len(own), contrib, top))
-    best = sorted(models, key=lambda m: -m.get("downloadsAllTime", 0))[:4]
-    save("assets/hugging-face.svg", hf_panel(hf_dl, len(models), [(m["id"].split("/")[1], m.get("downloadsAllTime", 0)) for m in best], stamp))
+    best = sorted(models, key=lambda m: -m["downloadsAllTime"])[:4]
+    save("assets/hugging-face.svg", hf_panel(hf_dl, len(models), [(m["id"].split("/")[1], m["downloadsAllTime"]) for m in best], stamp))
+    top = sorted(data["langs"].items(), key=lambda kv: -kv[1])[:5]
+    save("assets/stats-github.svg", gh_panel(len(own), data["contrib"], top, f"{last_date}  ·  {last['name']}"))
     if os.path.exists("choom.json"):
         save("assets/choom.svg", choom(json.load(open("choom.json", encoding="utf-8"))))
     save("assets/footer.svg", footer())
-    print(len(own), contrib, hf_dl, len(models), top)
+    print(len(own), data["contrib"], hf_dl, len(models), d["bounty"], top)
 
 
 if __name__ == "__main__":
