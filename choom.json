@@ -1,11 +1,11 @@
 {
  "since": "2026-07-23",
- "updated": "2026-10-24",
- "days_active": 74,
- "sessions": 112,
- "messages": 208420,
- "tool_calls": 61270,
- "tokens": 21386480058,
+ "updated": "2026-10-25",
+ "days_active": 75,
+ "sessions": 114,
+ "messages": 201490,
+ "tool_calls": 58066,
+ "tokens": 21163076245,
  "peak_hour": 21,
  "daily": [
   7,
@@ -99,8 +99,9 @@
   3296,
   1701,
   4642,
-  8490,
-  7002,
-  3291
+  3757,
+  4606,
+  3385,
+  105
  ]
 }
