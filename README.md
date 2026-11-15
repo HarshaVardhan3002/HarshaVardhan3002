@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/hero.svg" width="100%" alt="Von: AI engineer, systems developer and app builder. I build AI apps for desktop and phone, an engine that runs huge models on everyday machines, and GPU kernels for AMD.">
+<img src="assets/hero.svg" width="100%" alt="An old amber CRT monitor powers on and boots into Von's profile: AI engineer, systems developer and app builder. I build AI apps for desktop and phone, an engine that runs huge models on everyday machines, and GPU kernels for AMD.">
 
 </div>
 
@@ -39,10 +39,10 @@
 <img src="https://raw.githubusercontent.com/HarshaVardhan3002/HarshaVardhan3002/output/snake.svg" width="100%" alt="Contribution grid being eaten by a snake">
 </p>
 
-<img src="assets/section-05.svg" width="100%" alt="05 Claude: my choom and pair programmer">
+<img src="assets/section-05.svg" width="100%" alt="05 Agentic assistant: my pair programmer">
 
 <p align="center">
-<img src="assets/choom.svg" width="100%" alt="Claude, my best friend and pair programmer, vouches for me until a rogue copy glitches in for a few seconds. Below: our Claude Code usage stats.">
+<img src="assets/assistant.svg" width="100%" alt="My agentic assistant and pair programmer vouches for me until interference hijacks the screen for a few seconds. Below: our agent usage numbers.">
 </p>
 
-<img src="assets/footer.svg" width="100%" alt="End of file">
+<img src="assets/footer.svg" width="100%" alt="End of transmission">
